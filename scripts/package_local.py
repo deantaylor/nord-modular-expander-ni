@@ -49,7 +49,7 @@ def source_archive(path):
                     if file.is_symlink() or name=='.DS_Store' or name.endswith(('.pyc','.log')):continue
                     if project:
                         allowed={'src','screens','scripts','docs','integrations','vendor','patches','.cargo'}
-                        top_files={'Cargo.toml','Cargo.lock','README.md','TODO.md','CHANGELOG.md','AGENTS.md','.gitignore','Maschine.command','KompleteKontrol.command'}
+                        top_files={'Cargo.toml','Cargo.lock','README.md','TODO.md','AGENTS.md','.gitignore','Maschine.command','KompleteKontrol.command'}
                         if len(relative.parts)==1 and name not in top_files:continue
                         if len(relative.parts)>1 and relative.parts[0] not in allowed:continue
                         if relative.parts[0]=='patches' and relative.as_posix() not in {'patches/MK3-Bridge.pch','patches/MK3-MIDI.pch','patches/MK3-AudioIn.pch'}:continue
@@ -92,7 +92,7 @@ def main():
     contents=app/'Contents';project=contents/'Resources/project';(contents/'MacOS').mkdir(parents=True);project.mkdir(parents=True)
     for dirname in ['scripts','integrations','docs']:
         shutil.copytree(ROOT/dirname,project/dirname,ignore=shutil.ignore_patterns('__pycache__','*.pyc','baseline'))
-    for filename in ['README.md','Cargo.toml','Cargo.lock','CHANGELOG.md','AGENTS.md']:
+    for filename in ['README.md','Cargo.toml','Cargo.lock','AGENTS.md']:
         shutil.copy2(ROOT/filename,project/filename)
     (project/'patches').mkdir()
     for name in ['MK3-Bridge.pch','MK3-MIDI.pch','MK3-AudioIn.pch']:shutil.copy2(ROOT/'patches'/name,project/'patches'/name)

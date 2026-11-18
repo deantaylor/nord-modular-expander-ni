@@ -1,31 +1,47 @@
-> Current workflow: official unmodified G1-Emu VST plus the automatic external S49 bridge. See [keyboard guide](komplete-keyboard.md). The earlier custom-plugin/Maschine implementation below is historical.
+# Architecture and development
 
-# Current architecture
+Nord Modular NI Interface connects one Komplete Kontrol S49 Mk2 (`17cc:1610`) or Maschine MK3 (`17cc:1600`) to the official G1-Emu VST on Apple Silicon macOS. The plugin owns synthesis, audio, patch data and DAW state. Existing G1 tools handle full patch editing. Performance MIDI follows the DAW's routing. G2, Linux and Raspberry Pi are outside the current scope.
 
-G1-Emu owns the ROM, DSP, audio, patch storage and existing editor transport. The Rust application supplies Maschine controls, displays and browser navigation. `src/session.rs` selects the real `src/g1.rs` adapter or developer fixtures; fixtures are not production patch storage or another editor.
+## Process boundaries
 
-## Control and engine boundaries
+```text
+NI surface ⇄ Encdr ⇄ Rust controller ⇄ loopback JSON ⇄ C++ adapter ⇄ DirectLink / PC Port ⇄ G1-Emu VST
+                                                           ↑
+                                                   passive S49 MIDI activity
+```
 
-Hardware events are dispatched independently of WebKit by `src/input_dispatch.rs`, with a device authorization gate and shared G1 client. Relative MK3 input is accumulated/coalesced into bounded parameter targets. Each target carries current patch/assignment identity; external loads, slot changes and disconnects invalidate old targets. Native parameter frames use the current patch ID and bypass the slower ADC pot scanner. Confirmed engine readback supplies displayed values. Function is a real held panel input and released on disconnect/handover.
+The per-user launchd watcher in [scripts/keyboard_service.py](../scripts/keyboard_service.py) discovers an official plugin and starts the adapter plus the selected controller. It holds one service lock and cooperates with the manual launcher lock. When the plugin closes, it tears down its own processes and waits for another instance. The installer stages a versioned runtime outside the checkout and retains the previous registration for rollback.
 
-The localhost JSON bridge parses sockets on a dedicated I/O thread, queues bounded work onto the emulator engine thread and returns futures in request order. Client generations and lifetime guards cancel obsolete work. Settings GUI callbacks return to the message thread. Status reports running/problem state, upload/bank operation outcomes and actual assignments. File uploads and bank loads remain pending until their firmware outcome; conflicting operations are blocked. The original DirectLink editor transport remains available, but simultaneous editor UI synchronization has not been verified.
+| Area | Start here |
+| --- | --- |
+| Input handling, device profiles and LEDs | [src/controller.rs](../src/controller.rs), [src/input_dispatch.rs](../src/input_dispatch.rs) and the [Encdr descriptors](../vendor/encdr/descriptors/) |
+| Session, engine state and JSON client | [src/session.rs](../src/session.rs), [src/g1.rs](../src/g1.rs), [src/connection.rs](../src/connection.rs) |
+| Page selection and browsing | [src/browser_state.rs](../src/browser_state.rs), [src/patch_browser.rs](../src/patch_browser.rs), [src/sequencer.rs](../src/sequencer.rs) |
+| WebKit screen lifecycle and views | [src/main.rs](../src/main.rs), [screens/g1.html](../screens/g1.html), [Encdr View changes](../vendor/encdr-view/PATCHES.md) |
+| PC Port model, writes and readback | [integrations/g1-official/](../integrations/g1-official/), including the pinned adapter and protocol notes |
+| Older standalone and custom-plugin builds | [integrations/g1-emu/](../integrations/g1-emu/), retained for maintenance and existing projects |
 
-## Rendering and hardware
+## Invariants for changes
 
-AppKit runs once for the session. Tao schedules controller/display ticks; views are constructed before that loop and bound to hardware on discovery. Per-frame event-loop re-entry has been removed after a live freeze sample. Each tick drains temporary native objects through an autorelease pool. Debug preview captures are asynchronous.
+- Treat G1-Emu as authoritative. Validate slot, patch and assignment identity as well as parameter ranges. Discard stale work on patch replacement, slot change or disconnect. Keep pending feedback separate from confirmed state. The voice badge shows allocated voices with requested voices in parentheses.
+- Keep hardware input independent of screen capture. Coalesce encoder writes, bound background work, and let due readback proceed during sustained turns. WebKit snapshots are asynchronous. Keep the last good frame on capture failure, skip unchanged frames, and preserve the vendor-specific partial/full transfer policies.
+- Respect NI ownership and leave its services running. Cleanly release held modifiers, clear owned LEDs and retarget views after reconnect. Keep availability, selection and press lamps distinct. Button mappings belong in the [controls reference](key-assignments.md).
+- Keep browser navigation inside the configured library, skipping symlinks. Wait for confirmed patch loads before closing the browser. Loading a file leaves the source patch and stored banks intact.
+- Extend the existing adapter only where the pinned upstream protocol supports the operation. Keep audio/ROM handling in the plugin and keep native controls separate from bridge mappings.
 
-State dispatch coalesces at 16ms. WebKit captures asynchronously, one in flight per display, with at least 33ms between starts. Input processing does not wait for snapshots. List positions advance immediately before snapshots; rapid changes retarget existing rows rather than destroying them. Both control strips disappear in Browser; values use temporary bold emphasis. Inter is embedded offline.
+## Build and verify locally
 
-Snapshot timeout, missing-header output or JavaScript errors retain the last good frame and trigger bounded HTML reload/latest-state replay. A 5s cooldown prevents reload storms. NI-service browser/header changes use full keyframes; bottom controls retain fast partial transfers. Identical frames are skipped. Actual service transfers measured about 30ms full/~4ms partial; these are not end-to-end physical latency claims.
+Use the [setup instructions](../README.md#setup) for release builds. For changes to the Rust controller or Python watcher, start with the smallest applicable check.
 
-Hardware discovery filters 17cc:1600. A process-lifetime HID manager thread owns initialization/enumeration/open across reconnects. State survives device disconnect and views retarget the current device; ownership gates input/output. Header presentation routing is independent of the user-confirmed encoder slices. Keep NI agents running. Clean shutdown lets output workers clear LEDs/show Encdr logos before invalidating connectivity.
+```sh
+cargo test --locked
+python3 -m unittest discover -s scripts -p 'test_keyboard_service.py'
+cargo build --locked
+python3 scripts/check_mock.py
+```
 
-## Files, launch and diagnostics
+The mock check runs the real WebKit renderer with generated data and simulated hardware input. Focused checks under [scripts/](../scripts/) cover browser, module and sequencer views. The module and sequencer screenshot checks use Pillow. After a release build, run `python3 scripts/benchmark_bridge.py --expect-retained` to check that playhead updates retain the sequencer grid and report component timings for LED state and sequencer updates.
 
-`src/patch_browser.rs` confines navigation to the canonical patch-library root, skips symlinks and naturally sorts names. `src/browser_state.rs` stores only controller position on clean exit; missing entries recover and corrupt preferences are preserved. File loading does not rewrite source patches or store banks.
+The [adapter notes](../integrations/g1-official/README.md#verification) describe the isolated official-VST fixtures. Use disposable state, patch libraries, banks and ports, and keep live DAW/emulator sessions out of tests. Keep evidence under ignored `g1-state/`. Renderer captures and successful host transfers establish software behavior. Physical screen orientation, latency, brightness and feel need hardware observations.
 
-`scripts/run_machine.py` opens/attaches to a compatible emulator, enforces a single launcher, persists controller preferences and leaves the synth running on controller exit. Controller-session logs rotate at 2MB with two backups and contain periodic engine/render health. Local packaging provides the matched release controller/native bridge and corresponding dependency sources without proprietary firmware or user data.
-
-See [current evidence and pins](CONTEXT.md), [agreed controls](key-assignments.md), [return-session checks](test-on-return.md), [native integration](../integrations/g1-emu/README.md) and vendor PATCHES.md files. Automated checks establish their stated boundaries; physical feel and external editor synchronization remain separate.
-
-The MD-MM comparison and latency boundaries are recorded in [md-mm-comparison.md](md-mm-comparison.md). Completed bank catalogues are shared immutably and polled every 10s; explicit refresh stays immediate. Host gain preference writes are coalesced on the GUI thread, outside the engine request path.
+Earlier prototype records and diagnostic chronology are available in [Git history](https://github.com/deantaylor/nord-modular-ni-interface/tree/7e5fce4f36bbfbef10d03cf99b4867ac33c29692/docs).

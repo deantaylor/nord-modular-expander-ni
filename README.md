@@ -1,49 +1,46 @@
 # Nord Modular NI Interface
 
-Control a Nord Modular G1 patch from a **Maschine MK3** or **Komplete Kontrol S49 Mk2**. The hardware encoders and dual displays give you hands-on control of the patch loaded in the **official G1-Emu VST** on macOS. See parameter values as you turn a knob, shape a filter or envelope with a visual diagram, and edit sequencer steps while following the live playhead.
+Control Nord Modular G1 patches in the official **G1-Emu VST** from a **Maschine MK3** or **Komplete Kontrol S49 Mk2** on Apple Silicon macOS.
 
-- **Play and tweak.** Use the patch’s assigned knobs across pages. Open the Module Editor to adjust individual modules such as oscillators, filters and envelopes, including parameters outside the assigned knob pages.
-- **Edit sequences.** Select a sequencer in the loaded patch and adjust note, control or event steps from the hardware. The red playhead shows where the sequence is running.
-- **Browse and switch sounds.** Browse local patch files and emulator banks, load into slots A–D, switch between slots, and adjust supported slot output levels in the mixer.
-- **Restore a starting point.** Use ERASE or CLEAR to return edited parameters in the active slot to the values the bridge captured when it read the loaded patch.
+- Turn the patch's assigned knobs or open Module Edit to adjust individual filters, envelopes and oscillators. The displays show parameter values and diagrams for supported modules.
+- Edit note, control and event sequences from the hardware and follow the live playhead.
+- Browse patch files and emulator banks, switch between slots A–D, adjust supported patch output levels, and restore edited parameters to their loaded values.
 
-G1-Emu runs the synth and audio in your DAW. Performance MIDI follows your existing DAW routing, and full patch construction and cabling use the existing G1 editor.
+G1-Emu runs the synth and audio in your DAW. Performance MIDI keeps its usual DAW routing. Use the existing G1 editor for full patch construction and cabling.
 
 ## Setup
 
-Install the official **G1-Emu.vst3**, rescan in your DAW, and load **G1-Emu**. Keep the Native Instruments services running. Once installed, the bridge starts when the plugin is available and releases the controller when it closes. [Official plugin setup](docs/plugin-guide.md)
+1. Install Native Instruments' controller software and keep its background services running.
+2. Install the official **G1-Emu.vst3** under `~/Library/Audio/Plug-Ins/VST3`, rescan your DAW, and load G1-Emu. The reference build is [v0.1.0-alpha.30](https://github.com/animatek/G1-Emu/releases/tag/v0.1.0-alpha.30). Select your own compatible ROM in the plugin and enable DirectLink.
+3. With Rust, Python 3.9 or later, CMake 3.22 or later and the Xcode Command Line Tools installed, build from the repository root.
 
-On the first setup, build the controller and adapter with Rust, Python 3, CMake and the Xcode Command Line Tools.
+   ```sh
+   cargo build --locked --release
+   python3 scripts/build_official_adapter.py
+   ```
 
-```sh
-cargo build --locked --release
-python3 scripts/build_official_adapter.py
-```
+4. Double-click **Maschine.command** or **KompleteKontrol.command**. This installs a per-user service that connects when the plugin is available. Run the other launcher to switch controllers while the VST stays open.
 
-Then double-click **Maschine.command** for Maschine MK3 or **KompleteKontrol.command** for the S49 Mk2. The service uses one surface at a time. Run the other launcher to switch while G1-Emu stays open. [Maschine controls](docs/key-assignments.md#maschine-mk3-with-the-official-vst) · [S49 guide](docs/komplete-keyboard.md) · [Adapter build details](integrations/g1-official/README.md)
+[Controller reference](docs/key-assignments.md) · [Architecture and development](docs/architecture.md) · [Licensing and dependencies](docs/licensing.md)
 
 ## Controller displays
 
-Both controllers use the same dual-screen interface. These captures come from the built-in screen preview with development fixtures.
+The built-in renderer produced these dual-screen captures using development fixtures.
 
-![Home view with the active patch and assigned knobs across both screens](docs/screenshots/home.png)
+![Home with the active patch and its assigned knobs](docs/screenshots/home.png)
 
-![Module Editor showing ADSR parameters and an envelope graph](docs/screenshots/module-editor.png)
+![Module Editor with an ADSR envelope diagram](docs/screenshots/module-editor.png)
 
-![Module Editor showing Filter E cutoff, resonance and response diagram](docs/screenshots/filter.png)
+![Module Editor with a Filter E response diagram](docs/screenshots/filter.png)
 
-![Event sequencer showing two step rows and the red playhead](docs/screenshots/sequencer.png)
+![Event sequencer with two step rows and a red playhead](docs/screenshots/sequencer.png)
 
-## Controller shortcuts
+## Patch library and troubleshooting
 
-**ARRANGER** on Maschine MK3 or **PATTERN** on S49 Mk2 opens the sequencer page. Display button 5 unlocks the right display for step navigation and editing. Switching it off returns the wheel to sequencer selection on the left. The live playhead uses red circles. Centre press toggles event steps.
+The service keeps its data under `~/Library/Application Support/Modular Machine/`. Its `keyboard-preferences.json` records the active `patch_dir`. To import a different local `.pch` library, set `source_patch_dir` to the absolute source path, remove the `patch_dir` entry and rerun the launcher. The installer copies the patches into a private library and records its new `patch_dir`. Add patches to the active folder and use **Refresh** in Browser. The source folder stays intact. The repo includes three development fixtures.
 
-**ERASE** on Maschine MK3 or **CLEAR** on the S49 Mk2 restores changed parameters to the current slot’s loaded values, including assigned knobs and Module Editor edits, without reloading the patch. See [key assignments](docs/key-assignments.md).
+- **Bridge is waiting.** Check that the official VST is open, DirectLink is enabled and the connection is free. The service picks the first available plugin on ports `47310–47317` and keeps it until it closes. To select an instance, add its numeric port as `"direct_port"` in `keyboard-preferences.json`, preserving the library settings. Remove the key for automatic selection.
+- **Another app has the panel.** Select the bridge in the NI instance menu. The shortcut and display name depend on the controller. [Native shortcuts](docs/key-assignments.md#settings-and-native-shortcuts)
+- **Check the service.** Read `keyboard-status.json`, `keyboard-service.log`, `keyboard-controller.log` and `adapter-session.log` in the service data folder. For launch failures, check `keyboard-launch-error.log`. For screen lag, set `"trace_pipeline": true`, restart the bridge with its launcher, then run `python3 scripts/trace_keyboard.py` to summarize the ten-minute trace. Remove the setting when finished. The trace ends at host transfer and cannot time physical LCD scanout.
 
-## Local files
-
-The repository includes three project-owned patch fixtures for development checks. Supply your own compatible ROM and patch library for normal use. See [official plugin setup](docs/plugin-guide.md) for requirements.
-
-## Licensing and dependencies
-
-See [Licensing and third-party sources](docs/licensing.md) for component terms, source pins, and requirements for redistributing builds.
+To stop the bridge for the current login session, run `launchctl bootout "gui/$(id -u)/local.modular-machine.keyboard"`. G1-Emu and NI services keep running. Run the launcher to start the bridge again.

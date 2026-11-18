@@ -1,13 +1,12 @@
 # Repository instructions for coding agents
 
-Apply these instructions to the entire repository. They carry forward the operating rules in the [original handoff](docs/history/original-handoff.md), updated for the user's subsequent scope and workflow decisions.
+Apply these instructions to the entire repository.
 
 ## Sources of truth and starting work
 
-- Follow current user instructions first. Use [docs/scope.md](docs/scope.md) for product scope and [docs/key-assignments.md](docs/key-assignments.md) for agreed controls. These supersede conflicting provisional mappings and mock-editor deliverables in the original handoff.
-- Read relevant sections of [docs/CONTEXT.md](docs/CONTEXT.md) and [TODO.md](TODO.md) before rediscovering project facts. Read the original handoff when its detail is needed.
+- Follow current user instructions first. Use [architecture](docs/architecture.md) for project scope and [key assignments](docs/key-assignments.md) for controller mappings.
+- Read [TODO.md](TODO.md) for open work and the relevant integration notes before repeating investigation.
 - Inspect `git status --short` and the affected files before editing. Preserve existing work; do not reset, overwrite, or commit unrelated changes.
-- Continue from recorded progress. The original handoff's initial audit and hardware milestones are not instructions to restart completed work every session.
 
 ## Scope and architecture
 
@@ -25,7 +24,6 @@ Apply these instructions to the entire repository. They carry forward the operat
 - Select an explicitly cheaper available model for reading work; spawning another agent with the same expensive model does not satisfy cost-aware routing. Reserve stronger reasoning for protocol/design decisions, concurrency, compatibility and difficult failures. Escalate only the unresolved question when a cheaper agent cannot establish an answer with evidence.
 - Follow runtime restrictions on delegation. If model selection or differently configured workers are unavailable, state that limitation briefly and use concise deterministic retrieval with restricted context. Do not invent model switching, cost figures or token savings.
 - If handing work between agents, provide a compact goal, exact paths/line references, verified facts, relevant API signatures, uncertainties, minimal excerpts and next action. Escalate the specific unresolved question rather than expanding all context.
-- Update `docs/CONTEXT.md` only for material changes: decisions, verified behavior, dependency versions, useful commands and remaining limitations. Keep it factual and reusable.
 
 ## Implementation and performance
 
@@ -56,6 +54,6 @@ Apply these instructions to the entire repository. They carry forward the operat
 
 ## Documentation and reporting
 
-- Update README/setup notes, key assignments, TODO, changelog and context when their content materially changes. Keep remaining work and blockers distinct from completed work.
+- Keep setup, controls, architecture and TODO current. Record durable decisions and reusable verification in the relevant guide.
 - Give concise progress updates and a short final report: what changed, relevant verification and limitations, and the next necessary action. Include exact commands or evidence paths when they help reproduce a result.
 - State model-routing limitations when relevant; do not claim unavailable routing or measured savings. Keep reports proportional to the change.

@@ -16,7 +16,7 @@ This private source repository documents the existing terms for each component. 
 
 | Component | Terms and provenance |
 | --- | --- |
-| G1-Emu | The official GPL v3 VST runs separately. The supported workflow uses the unchanged macOS universal release **v0.1.0-alpha.30**. [Upstream release](https://github.com/animatek/G1-Emu/releases/tag/v0.1.0-alpha.30) · [Setup and archive checksum](plugin-guide.md) |
+| G1-Emu | The official GPL v3 VST runs separately. The supported workflow uses the unchanged macOS universal release **v0.1.0-alpha.30**. [Upstream release](https://github.com/animatek/G1-Emu/releases/tag/v0.1.0-alpha.30) · [Setup](../README.md#setup). macOS archive SHA-256: `d23699d13a54a3ceef30482407142c790cb0549f0d798af4fae060a422b74c8d` |
 | Animatek NME | The adapter builds against upstream protocol and patch model code under GPL v3. [Pinned source `0ded1bb`](https://github.com/animatek/Animatek-NME/tree/0ded1bb77ca2431b7ff52a8b55076430d85ac48d) · [License](https://github.com/animatek/Animatek-NME/blob/0ded1bb77ca2431b7ff52a8b55076430d85ac48d/LICENSE) |
 | JUCE | The adapter builds against JUCE modules offered under AGPL v3 or the commercial JUCE license. [Pinned source `29396c2`](https://github.com/juce-framework/JUCE/tree/29396c22c93392d6738e021b83196283d6e4d850) · [License terms](https://github.com/juce-framework/JUCE/blob/29396c22c93392d6738e021b83196283d6e4d850/LICENSE.md) |
 | Rust dependencies | Registry dependencies are pinned in [Cargo.lock](../Cargo.lock) and retain their own terms. Run `cargo metadata --locked --format-version 1` for package license metadata, then consult the corresponding source notices. |
