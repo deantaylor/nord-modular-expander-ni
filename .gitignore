@@ -1,0 +1,22 @@
+/target/
+/build/
+.DS_Store
+*.rom
+/hardware-test-session.json
+/state/
+__pycache__/
+*.py[cod]
+/roms/
+/NORD-MODULAR-RACK-VER-3.03.BIN.zip
+/NORD-MODULAR-RACK-VER-3.03.BIN
+/g1-state/
+
+# Local library and editor workspace. Keep the project-owned test fixtures.
+/patches/*
+!/patches/MK3-AudioIn.pch
+!/patches/MK3-Bridge.pch
+!/patches/MK3-MIDI.pch
+/modular-machine-mk3.code-workspace
+
+# Archived pre-integration prototype retained locally.
+/docs/baseline/

@@ -1,0 +1,26 @@
+[package]
+name = "modular-machine-mk3"
+version = "0.1.0"
+edition = "2021"
+description = "Maschine MK3 and S49 Mk2 control surfaces for the official G1-Emu VST on macOS"
+
+[dependencies]
+encdr = "=0.8.5"
+encdr-view = "=0.8.5"
+serde_json = "1.0"
+serde = { version = "1.0", features = ["derive"] }
+base64 = "=0.23.1"
+tracing = "0.1"
+libc = "0.2"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+
+[patch.crates-io]
+encdr = { path = "vendor/encdr" }
+encdr-view = { path = "vendor/encdr-view" }
+
+# Keep per-pixel conversion responsive in the normal developer launcher.
+[profile.dev.package.encdr-view]
+opt-level = 2
+
+[profile.dev.package.encdr]
+opt-level = 2

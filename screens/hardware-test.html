@@ -1,0 +1,24 @@
+<!doctype html><html lang="en"><meta charset="utf-8"><style>
+*{box-sizing:border-box}body{margin:0;width:480px;height:272px;overflow:hidden;background:#101821;color:white;font:12px -apple-system,Arial,sans-serif;border:2px solid white}
+header{height:29px;padding:5px 8px;display:flex;justify-content:space-between;font-weight:bold}.bars{height:16px;display:flex}.bars span{flex:1;text-align:center;font:10px Arial;color:#000;background:var(--c)}main{height:183px;padding:6px 8px}h2{font-size:12px;margin:0 0 5px}.grid{display:grid;grid-template-columns:repeat(4,1fr);gap:5px}.cell{height:64px;border:1px solid #617082;border-radius:4px;padding:5px}.cell b{display:block;font-size:14px}.cell small{display:block;font-size:10px;margin-top:4px}.seen{background:#164b3f}.pads .cell{height:24px;padding:3px;display:flex;justify-content:space-between}.row{display:flex;gap:5px;margin-bottom:4px}.chip{flex:1;background:#253341;text-align:center;font-size:10px;padding:2px}.chip.seen{background:#164b3f}footer{height:40px;border-top:1px solid #7a8b9a;padding:4px 8px;font-size:10px}#last{white-space:nowrap;overflow:hidden}#bottom{display:flex;justify-content:space-between;margin-top:5px}
+</style><body><header><span id="title">__SIDE__ / MK3 TEST</span><span id="mode">NO ENGINE</span></header><div class="bars"><span style="--c:#f00">RED</span><span style="--c:#0f0">GREEN</span><span style="--c:#00f;color:white">BLUE</span><span style="--c:#fff">WHITE</span></div><main id="main"></main><footer><div id="last">WAITING FOR INPUT</div><div id="bottom"><span>BL / __SIDE__</span><span id="link">STOP BUTTON OR TERMINAL quit</span><span>BR</span></div></footer><script>
+const side='__SIDE__';
+function box(text,seen,cls='cell'){let e=document.createElement('div');e.className=cls+(seen?' seen':'');e.textContent=text;return e;}
+window.encdr=window.encdr||{};
+window.encdr.onMessage=function(channel,s){if(channel!=='state')return;
+document.getElementById('title').textContent=side.toUpperCase()+' / TL → TR';document.getElementById('mode').textContent=s.mode;
+document.getElementById('last').textContent=s.last;
+if(s.connection)document.getElementById('link').textContent=s.connection.status+' · RETURNS '+s.connection.reconnects;
+const root=document.getElementById('main');root.replaceChildren();
+let heading=document.createElement('h2');root.append(heading);
+if(side==='left'){
+heading.textContent='ENCODERS 1–8 · turn BOTH directions';let grid=box('',false,'grid');root.append(grid);
+s.encoders.forEach((n,i)=>{let cell=box('',n>0);let title=document.createElement('b');title.textContent='E'+(i+1)+' · '+n;cell.append(title);let info=document.createElement('small');info.textContent='Δ '+s.totals[i].toFixed(3);cell.append(info);let dirs=document.createElement('small');dirs.textContent='− '+(s.negative[i]?'✓':'?')+'   + '+(s.positive[i]?'✓':'?');cell.append(dirs);grid.append(cell);});
+}else{
+heading.textContent='TOP 1–8 / GROUP A–H / PADS 1–16';
+for(let [label,counts] of [['T',s.top],['G',s.groups]]){let row=box('',false,'row');counts.forEach((n,i)=>row.append(box(label+(label==='G'?'ABCDEFGH'[i]:i+1)+':'+n,n>0,'chip')));root.append(row);}
+let grid=box('',false,'grid pads');root.append(grid);
+// MK3 physical pad order: 13–16 at top, 1–4 at bottom.
+for(let i of [12,13,14,15,8,9,10,11,4,5,6,7,0,1,2,3]){grid.append(box('P'+(i+1)+' · '+s.pads[i],s.pads[i]>0));}
+}};
+</script></body></html>

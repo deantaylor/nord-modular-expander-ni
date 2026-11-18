@@ -1,0 +1,19 @@
+"""Bootstrap the local app with external user data and a matched native/controller pair."""
+import json
+import os
+from pathlib import Path
+import sys
+
+ROOT=Path(__file__).resolve().parents[1]
+os.environ.setdefault('MODULAR_MACHINE_STATE_DIR',str(Path.home()/'Library/Application Support/Modular Machine'))
+from run_machine import PREFERENCES, STATE, write_preferences, main
+
+if __name__=='__main__':
+    defaults=ROOT/'local-defaults.json'
+    preferences=STATE/'plugin-controller-preferences.json' if '--plugin' in sys.argv else PREFERENCES
+    if not preferences.exists() and defaults.exists():
+        value=json.loads(defaults.read_text())
+        if '--plugin' in sys.argv:value.pop('port',None)
+        write_preferences(preferences,value)
+    if '--no-build' not in sys.argv:sys.argv.append('--no-build')
+    main()

@@ -1,0 +1,698 @@
+diff --git a/CHANGELOG.md b/CHANGELOG.md
+index 5a3bc40..5ae7585 100644
+--- a/CHANGELOG.md
++++ b/CHANGELOG.md
+@@ -1,3 +1,21 @@
++## 2026-11-11 — Codex, local integration change, not committed
++
++Local change, not committed — Codex: Maschine-enabled rack VST3/AU instrument and FX bridge, per-instance control ports and isolated G1_DATA_DIR support. Verified locally: instrument/FX VST3 two-instance control, host parameters, MIDI/audio, pause/resume, project state restore and plugin-only launcher; Both installed AU variants pass Apple auval; ten controller-launcher tests pass.
++
++- Queue bridge requests on the machine thread between bounded emulation slices; UI timer polls futures without waiting. Bound queues, cancel disconnected-client work, marshal native Settings callback to the UI thread and guard bridge task lifetime.
++
++- Encoder follow-up: coalesced live values use verified editor parameter frames on the existing PC Port/PresetsLink, with known patch IDs and patch-operation barriers; preserve Function hold gating and the ADC fallback until identity is known. Bridge RPC poll is 5ms. Verification recorded by the integrating repository; no external editor sync claim.
++
++- Optional G1_MK3_PORT loopback controller bridge for the Apple Silicon standalone, reusing existing KnobMap/PresetsLink and leaving DirectLink available to NME. Includes real-host verification helper and completed-settings ACK ownership fix (retain late-reply filtering for abandoned reads). Verified on macOS arm64: standalone/helper builds, settings-reply regression, G1 DSP check, local rack OS 3.03 upload/store/reload, actual knob feedback, CoreAudio opened, recorded E4/E5 and level change. No new physical MK3 control or external-editor sync claim.
++
++- Browser follow-up: expose existing PresetsLink upload outcome in controller status for confirmed file loading/failure feedback. Verified real-ROM local file selection/upload, actual changed knob values, rendered browser list and stored-bank reload on macOS arm64; controller regression tests cover upload failure/timeout.
++
++- MK3 assignments: real master ADC/output gain and synth-settings read/write metadata, held Function/Shift input with disconnect release, and a callback opening the existing standalone Settings card. Verified macOS arm64 standalone/helper builds, actual ROM Function gating, master ADC, synth tempo readback and controller mapping/layout/state checks. Native Settings opens the existing card; no replacement editor.
++
++- MK3 LCD text: preserve G1 custom lowercase descenders instead of blanking control bytes. Verified real-ROM gjpqy LCD byte codes; added standalone text regression target.
++
++- MK3 voice indicator: read requested polyphony using the existing Patch Header query path, separate from the active-slot allocation shown by the LCD. No page/preset counters substituted.
++
+ # Changelog
+ 
+ Everything that changes in G1-Emu, newest first. **Rule: every change that goes into the repo gets
+diff --git a/app/CMakeLists.txt b/app/CMakeLists.txt
+index 55663c1..c89c9c0 100644
+--- a/app/CMakeLists.txt
++++ b/app/CMakeLists.txt
+@@ -204,3 +204,7 @@ endif()
+ 
+ add_executable(g1microupdatetest microupdatetest.cpp)
+ target_link_libraries(g1microupdatetest PRIVATE g1Core)
++
++add_executable(g1settingsreplycheck SettingsReplyCheck.cpp)
++target_link_libraries(g1settingsreplycheck PRIVATE g1Core)
++add_test(NAME g1settingsreplycheck COMMAND g1settingsreplycheck)
+diff --git a/app/emuhost.cpp b/app/emuhost.cpp
+index f70be2a..4afee93 100644
+--- a/app/emuhost.cpp
++++ b/app/emuhost.cpp
+@@ -110,7 +110,7 @@ namespace g1app
+ 		const char* up = std::getenv("G1_UPDATE");
+ 		boot(up && std::string(up) == "1", _log);
+ 
+-		m_midi = makeMidiTransport("G1-Emu", _log);
++		m_midi = makeMidiTransport(std::getenv("G1_MIDI_CLIENT")?std::getenv("G1_MIDI_CLIENT"):"G1-Emu", _log);
+ 		if(!m_midi)
+ 			return false;
+ 		m_pcPort = m_midi->addPort("PC Port", {m_options.pcPortOutDevice, m_options.pcPortInDevice});
+@@ -338,10 +338,12 @@ namespace g1app
+ 	// The G1 (a new one, or the first) connected and running.
+ 	void EmuHost::launch()
+ 	{
++        {std::lock_guard<std::mutex> lock(m_machineTasksMutex);m_machineTasks.clear();}
+ 		wireEngine();
+ 		logEvent(systemSummary(m_engine->mc().threaded()));
+ 		m_quit = false;
+ 		m_thread = std::thread([this] { run(); });
++        m_running.store(true,std::memory_order_release);
+ 	}
+ 
+ 	// What connects a new G1 to the sound card: the input to DSP 0, the four outputs from the last DSP
+@@ -399,6 +401,7 @@ namespace g1app
+ 
+ 	void EmuHost::stop()
+ 	{
++        m_running.store(false,std::memory_order_release);
+ 		if(!m_thread.joinable())
+ 			return;
+ 		m_quit = true;
+@@ -632,6 +635,9 @@ namespace g1app
+ 		while(!m_quit)
+ 		{
+ 			const auto t0 = clock::now();
++            std::deque<std::function<void()>> machineTasks;
++            {std::lock_guard<std::mutex> lock(m_machineTasksMutex);machineTasks.swap(m_machineTasks);}
++            for(auto& task:machineTasks)task();
+ 
+ 			// What comes in from outside
+ 			m_midi->poll(incoming);
+@@ -822,6 +828,12 @@ namespace g1app
+ 		}
+ 	}
+ 
++    bool EmuHost::postMachineTask(std::function<void()> task) {
++        std::lock_guard<std::mutex> lock(m_machineTasksMutex);
++        if(m_quit || !m_running || m_machineTasks.size()>=64)return false;
++        m_machineTasks.push_back(std::move(task));return true;
++    }
++
+ 	EmuHost::Stats EmuHost::stats()
+ 	{
+ 		std::lock_guard lock(m_statsMutex);
+diff --git a/app/emuhost.h b/app/emuhost.h
+index 6c1623d..040c8fc 100644
+--- a/app/emuhost.h
++++ b/app/emuhost.h
+@@ -1,4 +1,6 @@
+ #pragma once
++#include <functional>
++#include <deque>
+ #include "diaglog.h"
+ #include "directlink.h"
+ 
+@@ -75,7 +77,7 @@ namespace g1app
+ 		// How the system's MIDI APIs name this G1's own ports, so a list of inputs can leave them out.
+ 		std::vector<std::string> ownMidiPortIds() const;
+ 		void stop();
+-		bool running() const { return m_thread.joinable(); }
++		bool running() const { return m_running.load(std::memory_order_acquire); }
+ 
+ 		// Switches the G1 off and on, as its power switch would: the flash is saved and a new G1
+ 		// boots from it, with the knobs where they were. MIDI ports and audio stay open. Whatever
+@@ -100,6 +102,8 @@ namespace g1app
+ 		// The OS's synth settings (MIDI channels, clock...), through the PC Port between the editor's messages.
+ 		SynthSettingsLink& synthSettings() { return m_synthSettings; }
+ 		PresetsLink& presets() { return m_presets; }
++        // Bounded bridge tasks execute between emulation slices, never on the UI thread.
++        bool postMachineTask(std::function<void()> task);
+ 		// The last MIDI controller that came in, for the panel's MIDI Learn (MidiRouting).
+ 		bool lastController(int& _channel, int& _cc, uint32_t& _serial) const { return m_midiRouting.lastController(_channel, _cc, _serial); }
+ 		// MIDI CC Mode on Selected Slots: a controller on a selected slot's channel goes to every selected
+@@ -164,7 +168,10 @@ namespace g1app
+ 		void keepReceivedOs();
+ 		std::thread m_thread;
+ 		std::atomic<bool> m_quit{false};
++        std::atomic<bool> m_running{false};
+ 
++        std::mutex m_machineTasksMutex;
++        std::deque<std::function<void()>> m_machineTasks;
+ 		std::mutex m_statsMutex;
+ 		Stats m_stats;
+ 		std::atomic<uint64_t> m_pcIn{0}, m_pcOut{0}, m_midiIn{0}, m_midiOut{0};
+diff --git a/app/gui/CMakeLists.txt b/app/gui/CMakeLists.txt
+index 7a67c0f..eb9b395 100644
+--- a/app/gui/CMakeLists.txt
++++ b/app/gui/CMakeLists.txt
+@@ -11,3 +11,13 @@ target_link_libraries(g1gui PRIVATE g1Host g1Skin g1NmeData juce::juce_gui_basic
+ if(G1_HAVE_WINDOWS_MIDI)
+ 	g1_copy_midi_runtime(g1gui)
+ endif()
++
++# Local MK3 bridge verification target: real host/audio, isolated flash supplied on CLI.
++juce_add_console_app(g1mk3check PRODUCT_NAME "g1mk3check")
++target_sources(g1mk3check PRIVATE Mk3HostCheck.cpp ${G1_NME_SOURCES})
++target_include_directories(g1mk3check PRIVATE ${G1_NME_INCLUDE} ${CMAKE_CURRENT_SOURCE_DIR})
++target_compile_definitions(g1mk3check PRIVATE JUCE_WEB_BROWSER=0 JUCE_USE_CURL=0 JUCE_MODAL_LOOPS_PERMITTED=1)
++target_link_libraries(g1mk3check PRIVATE g1Host g1NmeData juce::juce_gui_basics juce::juce_data_structures)
++
++add_executable(g1lcdtextcheck LcdTextCheck.cpp)
++add_test(NAME g1lcdtextcheck COMMAND g1lcdtextcheck)
+diff --git a/app/gui/Main.cpp b/app/gui/Main.cpp
+index fd7b4a6..c09479a 100644
+--- a/app/gui/Main.cpp
++++ b/app/gui/Main.cpp
+@@ -11,6 +11,7 @@
+ 
+ #include "Panel.h"
+ #include "MicroPanel.h"
++#include "Mk3ControlBridge.h"
+ 
+ #include "Settings.h"
+ #include "KeyboardInput.h"
+@@ -125,6 +126,7 @@ namespace g1gui
+ 			m_panelHost.keepVolume();
+ 			m_panelHost.save();	// the size and the volume it was left at
+ 		}
++		void openEmulatorSettings() { if(auto* view=dynamic_cast<PanelView*>(getContentComponent())) { view->openEmulatorSettings(); toFront(true); } }
+ 		void closeButtonPressed() override { juce::JUCEApplication::getInstance()->systemRequestedQuit(); }
+ 		void resized() override
+ 		{
+@@ -305,11 +307,15 @@ namespace g1gui
+ 			// once, and answering it writes the file, so it does not come back unless it is
+ 			// turned on again in Settings.
+ 			m_firstRun = !m_host.options().load(g1app::EmuHost::defaultSettingsPath());
++			if(const int port=g1app::Mk3ControlBridge::configuredPort(); port>0)
++				{ m_mk3=std::make_unique<g1app::Mk3ControlBridge>(m_host,port);
++				m_mk3->onShowSettings=[this]{ if(m_window)m_window->openEmulatorSettings(); }; }
+ 			tryStart();
+ 		}
+ 
+ 		void shutdown() override
+ 		{
++			m_mk3.reset();
+ 			m_snapshots.reset();
+ 			m_window.reset();
+ 			KeyboardInput::get().close();	// before the G1 it plays into goes
+@@ -411,6 +417,7 @@ namespace g1gui
+ 		}
+ 
+ 		g1app::EmuHost m_host;
++		std::unique_ptr<g1app::Mk3ControlBridge> m_mk3;
+ 		std::unique_ptr<MainWindow> m_window;
+ 		std::unique_ptr<Snapshots> m_snapshots;	// G1_SNAPSHOTS
+ 		std::unique_ptr<juce::FileChooser> m_chooser;
+diff --git a/app/gui/Panel.h b/app/gui/Panel.h
+index c6f69d9..835e303 100644
+--- a/app/gui/Panel.h
++++ b/app/gui/Panel.h
+@@ -381,6 +381,7 @@ namespace g1gui
+ 		static constexpr uint8_t VolumeAdc = 0x30;				// the master volume's knob
+ 
+ 		explicit Panel(PanelHost& _host);
++		void openEmulatorSettings() { m_settings.triggerClick(); }
+ 		~Panel() override;
+ 		void paint(juce::Graphics& _g) override;
+ 		void resized() override;
+@@ -578,6 +579,7 @@ namespace g1gui
+ 		static constexpr float MinScale = 0.5f, MaxScale = 2.5f;
+ 
+ 		explicit PanelView(PanelHost& _host);
++		void openEmulatorSettings() { m_panel.openEmulatorSettings(); }
+ 		double aspectRatio() const { return static_cast<double>(m_panel.getWidth()) / static_cast<double>(m_panel.getHeight()); }
+ 		// The resizer's limits for these proportions, or _aspect's, from MinScale to MaxScale.
+ 		void applyLimits(juce::ComponentBoundsConstrainer& _c) const { applyLimits(_c, aspectRatio()); }
+diff --git a/app/hostconfig.cpp b/app/hostconfig.cpp
+index db60a70..8d51006 100644
+--- a/app/hostconfig.cpp
++++ b/app/hostconfig.cpp
+@@ -13,6 +13,8 @@ namespace g1app
+ 
+ 	std::string defaultFlashPath()
+ 	{
++		if(const char* directory=std::getenv("G1_DATA_DIR");directory && *directory)
++			return (std::filesystem::path(directory)/"flash.bin").string();
+ #ifdef _WIN32
+ 		// HOME is normally unset in a native Windows process. Falling back to "." made the
+ 		// settings and flash follow the executable's working directory, so launching the same
+diff --git a/app/plugin/CMakeLists.txt b/app/plugin/CMakeLists.txt
+index 93e31c8..08835c2 100644
+--- a/app/plugin/CMakeLists.txt
++++ b/app/plugin/CMakeLists.txt
+@@ -10,7 +10,21 @@
+ # model fixed at build time. A G1-Emu is a Regular or an Expanded and never a Micro: switching
+ # between a rack and the Micro inside one instance broke the editor's connection and hung the rack
+ # on the Micro's OS (Javier, 2026-11-03), and the two share neither flash nor patches anyway.
++option(G1_MK3_PLUGINS "Build locally branded Maschine-enabled rack plugins" OFF)
+ function(g1_add_plugin _target _name _code _fx _micro)
++    set(company "Animatek")
++    set(manufacturer Atek)
++    if(G1_MK3_PLUGINS AND NOT _micro)
++        set(company "Modular Machine")
++        set(manufacturer Mdmk)
++        if(_fx)
++            set(_name "Modular Machine G1 FX")
++            set(_code MkFx)
++        else()
++            set(_name "Modular Machine G1")
++            set(_code MkG1)
++        endif()
++    endif()
+ 	# AU too on macOS (asked for in #7): an instrument (aumu), and G1-Emu FX as a music effect (aumf),
+ 	# the AU type for an effect that takes MIDI.
+ 	set(formats VST3)
+@@ -35,8 +49,8 @@ function(g1_add_plugin _target _name _code _fx _micro)
+ 	endif()
+ 
+ 	juce_add_plugin(${_target}
+-		COMPANY_NAME "Animatek"
+-		PLUGIN_MANUFACTURER_CODE Atek
++		COMPANY_NAME "${company}"
++		PLUGIN_MANUFACTURER_CODE ${manufacturer}
+ 		PLUGIN_CODE ${_code}
+ 		PRODUCT_NAME "${_name}"
+ 		IS_SYNTH ${isSynth}
+@@ -117,3 +131,10 @@ target_link_libraries(g1jitfailtest PRIVATE g1Core)
+ add_test(NAME g1jitfailtest-recover COMMAND g1jitfailtest recover)
+ add_test(NAME g1jitfailtest-fail COMMAND g1jitfailtest fail)
+ set_tests_properties(g1jitfailtest-recover g1jitfailtest-fail PROPERTIES TIMEOUT 300 LABELS g1 SKIP_RETURN_CODE 77)
++
++if(G1_MK3_PLUGINS)
++    juce_add_console_app(g1mk3plugincheck PRODUCT_NAME "g1mk3plugincheck")
++    target_sources(g1mk3plugincheck PRIVATE Mk3PluginCheck.cpp)
++    target_compile_definitions(g1mk3plugincheck PRIVATE JUCE_PLUGINHOST_VST3=1 JUCE_WEB_BROWSER=0 JUCE_USE_CURL=0 JUCE_MODAL_LOOPS_PERMITTED=1)
++    target_link_libraries(g1mk3plugincheck PRIVATE juce::juce_audio_processors juce::juce_audio_devices juce::juce_gui_basics juce::juce_recommended_config_flags)
++endif()
+diff --git a/app/plugin/Editor.cpp b/app/plugin/Editor.cpp
+index e836d94..2b14e71 100644
+--- a/app/plugin/Editor.cpp
++++ b/app/plugin/Editor.cpp
+@@ -27,10 +27,12 @@ namespace g1plugin
+ 		setResizable(true, true);
+ 		rebuild();
+ 		startTimerHz(5);
++		m_processor.controllerEditorOpened(true);
+ 	}
+ 
+ 	Editor::~Editor()
+ 	{
++		m_processor.controllerEditorOpened(false);
+ 		stopTimer();
+ 		m_panel.reset();
+ 		m_micro.reset();
+diff --git a/app/plugin/Editor.h b/app/plugin/Editor.h
+index fef77c6..800d1ed 100644
+--- a/app/plugin/Editor.h
++++ b/app/plugin/Editor.h
+@@ -20,6 +20,7 @@ namespace g1plugin
+ 	public:
+ 		explicit Editor(Processor& _processor);
+ 		~Editor() override;
++		void openControllerSettings(){if(m_panel)m_panel->openEmulatorSettings();}
+ 
+ 		// The processor is about to replace the engine: the panel must not outlive it.
+ 		void engineGoing();
+@@ -48,7 +49,7 @@ namespace g1plugin
+ 		float panelScale() const override;
+ 		void setPanelScale(float _scale) override;
+ 		void fitTo(double _aspect);
+-		juce::String settingsTooltip() const override { return "ROM, latency, and where this instance's patches came from"; }
++		juce::String settingsTooltip() const override { return "ROM, latency, Maschine port, and where this instance's patches came from"; }
+ 		std::unique_ptr<juce::Component> createSettings() override;
+ 		g1app::SynthSettingsLink& synthSettings() override;
+ 		g1app::PresetsLink& presets() override;
+diff --git a/app/plugin/Processor.cpp b/app/plugin/Processor.cpp
+index e5903e2..13aa909 100644
+--- a/app/plugin/Processor.cpp
++++ b/app/plugin/Processor.cpp
+@@ -1,4 +1,5 @@
+ #include "Processor.h"
++#include "Mk3PluginHost.h"
+ #include "filelock.h"
+ 
+ #include "Editor.h"
+@@ -233,6 +234,9 @@ namespace g1plugin
+ 		openLink();
+ 		findRom();
+ 		startTimerHz(20);
++#if !G1_PLUGIN_MICRO
++		m_mk3Host=std::make_unique<Mk3PluginHost>(*this);
++#endif
+ 
+ 		// A user's own account of "no audio" or "connection lost" (issues #59, #63, #65) is a
+ 		// guess without this: what the plugin actually found at this instant, in the log Report
+@@ -333,8 +337,11 @@ namespace g1plugin
+ 		writePluginConf(scale, _gainDb);
+ 	}
+ 
++	void Processor::controllerEditorOpened(bool open){if(m_mk3Host)m_mk3Host->editorOpened(open);}
++
+ 	Processor::~Processor()
+ 	{
++		m_mk3Host.reset();
+ 		stopTimer();
+ 		cancelPendingUpdate();
+ 		// A turn still open ends, or the host keeps the parameter touched.
+@@ -1551,6 +1558,7 @@ namespace g1plugin
+ 	{
+ 		std::lock_guard<std::mutex> lock(m_lifecycle);
+ 		std::string d = "ROM: " + (m_romPath.empty() ? std::string("none") : m_romPath) + "\n";
++        if(m_mk3Host)d+="Maschine controller: 127.0.0.1:"+std::to_string(m_mk3Host->port())+" (use --plugin --port "+std::to_string(m_mk3Host->port())+")\n";
+ 		d += std::string("Model: ") + (m_model == Model::Micro && !m_microFallback ? "Micro Modular (1 DSP)"
+ 			: m_model == Model::Expanded ? "Expanded (8 DSPs)" : "Regular (4 DSPs)") + "\n";
+ 		if(m_model == Model::Micro)
+diff --git a/app/plugin/Processor.h b/app/plugin/Processor.h
+index 7184ddc..fb7f697 100644
+--- a/app/plugin/Processor.h
++++ b/app/plugin/Processor.h
+@@ -40,6 +40,7 @@
+ 
+ namespace g1plugin
+ {
++	class Mk3PluginHost;
+ 	// One of the 18 panel knobs as a host parameter. Its name says what the knob moves in the
+ 	// patch now ("Knob 3: OscA Freq coars"), and its text is the value the OS gives that parameter,
+ 	// both read from the OS's tables (g1knobs.h) and changed when another patch comes. The value
+@@ -103,6 +104,8 @@ namespace g1plugin
+ 	class Processor : public juce::AudioProcessor, private juce::AsyncUpdater, private juce::Timer
+ 	{
+ 	public:
++		friend class Mk3PluginHost;
++		void controllerEditorOpened(bool open);
+ 		Processor();
+ 		~Processor() override;
+ 
+@@ -285,6 +288,7 @@ namespace g1plugin
+ 		std::vector<uint8_t> m_rom;
+ 		std::string m_romPath, m_romProblem;
+ 
++		std::unique_ptr<Mk3PluginHost> m_mk3Host;
+ 		std::mutex m_lifecycle;					// m_engine and m_runner are swapped under it
+ 		std::unique_ptr<g1app::Engine> m_engine;
+ 		std::unique_ptr<g1app::Runner> m_runner;
+diff --git a/app/presetslink.cpp b/app/presetslink.cpp
+index 06baffa..43bbcdf 100644
+--- a/app/presetslink.cpp
++++ b/app/presetslink.cpp
+@@ -119,6 +119,10 @@ namespace g1app
+ 		if(_slot < 0 || _slot > 3 || _bank < 0 || _bank >= Banks || _position < 0 || _position >= Positions)
+ 			return;
+ 		std::lock_guard<std::mutex> lock(m_mutex);
++        m_slotPids[static_cast<size_t>(_slot)]=-1;
++        m_parameterWrites.erase(std::remove_if(m_parameterWrites.begin(),m_parameterWrites.end(),[_slot](const auto& p){return p.slot==_slot;}),m_parameterWrites.end());
++        m_parameterNotifications.erase(std::remove_if(m_parameterNotifications.begin(),m_parameterNotifications.end(),[_slot](const auto& p){return p.slot==_slot;}),m_parameterNotifications.end());
++        m_loadStatus.busy=true;m_loadStatus.ok=false;m_loadStatus.message="Loading stored patch";++m_loadStatus.serial;
+ 		m_loads.push_back({_slot, _bank, _position});
+ 	}
+ 
+@@ -130,6 +134,49 @@ namespace g1app
+ 		m_controlJobs.push_back({_slot, false});
+ 	}
+ 
++	void PresetsLink::readVoices(const int slot) {
++        if(slot<0 || slot>3)return;
++        std::lock_guard<std::mutex> lock(m_mutex);
++        for(const auto& job:m_controlJobs)if(job.voices && job.slot==slot)return;
++        ControlJob job{slot,false};job.voices=true;m_controlJobs.push_back(job);
++    }
++    int PresetsLink::requestedVoices(const int slot) const {
++        if(slot<0 || slot>3)return -1;
++        std::lock_guard<std::mutex> lock(m_mutex);return m_requestedVoices[static_cast<size_t>(slot)];
++    }
++
++    int PresetsLink::patchId(int slot) const {
++        std::lock_guard<std::mutex> lock(m_mutex);return slot>=0&&slot<4?m_slotPids[static_cast<size_t>(slot)]:-1;
++    }
++    void PresetsLink::confirmParameter(int slot,int section,int module,int param,int value) {
++        if(slot<0||slot>3)return;if(section==2)module=1;
++        std::lock_guard<std::mutex> lock(m_mutex);
++        for(auto i=m_parameterNotifications.begin();i!=m_parameterNotifications.end();) {
++            if(i->slot!=slot||i->section!=section||i->module!=module||i->param!=param){++i;continue;}
++            if(i->pid!=m_slotPids[static_cast<size_t>(slot)]){i=m_parameterNotifications.erase(i);continue;}
++            if(i->value!=value){++i;continue;}
++            // Only report RAM-confirmed values, in the G1's existing panel Info format.
++            const auto report=frame(CcInfo,static_cast<uint8_t>(slot),{0x01,0x40,static_cast<uint8_t>(section),
++                static_cast<uint8_t>(module),static_cast<uint8_t>(param),static_cast<uint8_t>(value)});
++            m_toEditor.insert(m_toEditor.end(),report.begin(),report.end());i=m_parameterNotifications.erase(i);
++        }
++    }
++    bool PresetsLink::setParameter(int slot, int section, int module, int param, int value) {
++        if(slot<0 || slot>3 || section<0 || section>2 || module<0 || module>127 || param<0 || param>127 || value<0 || value>127)return false;
++        std::lock_guard<std::mutex> lock(m_mutex);
++        const int pid=m_slotPids[static_cast<size_t>(slot)];
++        if(pid<0 || m_uploadStatus.busy || m_loadStatus.busy || !m_loads.empty())return false;
++        if(section==2)module=1; // editor's four morph-value controls
++        m_parameterNotifications.erase(std::remove_if(m_parameterNotifications.begin(),m_parameterNotifications.end(),[&](const auto& p){return p.slot==slot&&p.section==section&&p.module==module&&p.param==param;}),m_parameterNotifications.end());
++        if(m_parameterNotifications.size()>=72)m_parameterNotifications.erase(m_parameterNotifications.begin());
++        m_parameterNotifications.push_back({slot,pid,section,module,param,value});
++        for(auto& write:m_parameterWrites)if(write.slot==slot && write.section==section && write.module==module && write.param==param) {
++            write={slot,pid,section,module,param,value};return true;
++        }
++        if(m_parameterWrites.size()>=72)m_parameterWrites.erase(m_parameterWrites.begin());
++        m_parameterWrites.push_back({slot,pid,section,module,param,value});return true;
++    }
++
+ 	void PresetsLink::assignControl(const int _slot, const int _section, const int _module, const int _param, const int _ctrl, const int _previous)
+ 	{
+ 		if(_slot < 0 || _slot > 3 || (_ctrl < 0 && _previous < 0))
+@@ -180,6 +227,9 @@ namespace g1app
+ 		if(_slot < 0 || _slot > 3 || _frames.empty())
+ 			return;
+ 		std::lock_guard<std::mutex> lock(m_mutex);
++        m_slotPids[static_cast<size_t>(_slot)]=-1;
++        m_parameterWrites.erase(std::remove_if(m_parameterWrites.begin(),m_parameterWrites.end(),[_slot](const auto& p){return p.slot==_slot;}),m_parameterWrites.end());
++        m_parameterNotifications.erase(std::remove_if(m_parameterNotifications.begin(),m_parameterNotifications.end(),[_slot](const auto& p){return p.slot==_slot;}),m_parameterNotifications.end());
+ 		Upload u;
+ 		u.slot = _slot;
+ 		u.frames = std::move(_frames);
+@@ -209,6 +259,12 @@ namespace g1app
+ 		++m_revision;
+ 	}
+ 
++    PresetsLink::UploadStatus PresetsLink::loadStatus() const {
++        std::lock_guard<std::mutex> lock(m_mutex);return m_loadStatus;
++    }
++    bool PresetsLink::patchOperationBusy() const {
++        std::lock_guard<std::mutex> lock(m_mutex);return m_loadStatus.busy||m_uploadStatus.busy;
++    }
+ 	PresetsLink::UploadStatus PresetsLink::uploadStatus() const
+ 	{
+ 		std::lock_guard<std::mutex> lock(m_mutex);
+@@ -241,9 +297,12 @@ namespace g1app
+ 		m_loads.clear();
+ 		m_uploads.clear();
+ 		m_uploadStatus = {};
++        m_loadStatus={};m_loadingSlot=-1;
+ 		m_uploadNext = false;
+ 		m_controlJobs.clear();
+ 		m_controls = {};
++        m_requestedVoices.fill(-1);
++        m_slotPids.fill(-1);m_parameterWrites.clear();m_parameterNotifications.clear();
+ 		m_controlNext = false;
+ 		m_controlPackets.clear();
+ 		m_state = State::Idle;
+@@ -310,6 +369,11 @@ namespace g1app
+ 				_toEditor.insert(_toEditor.end(), _m.begin(), _m.end());
+ 				return;
+ 			}
++            if(ccOf(_m)==CcInfo && _m.size()>=10 && _m[5]==InfoNewPatchInSlot && _m[6]<4) {
++                std::lock_guard<std::mutex> lock(m_mutex);
++                m_slotPids[_m[6]]=_m[7]&0x7f;
++                m_parameterWrites.erase(std::remove_if(m_parameterWrites.begin(),m_parameterWrites.end(),[&](const auto& p){return p.slot==_m[6];}),m_parameterWrites.end());
++            }
+ 			const bool hide = hides(_m, _nowMs);	// before the reply moves the state on
+ 			takeReply(_m, _nowMs);
+ 			traceMsg(hide ? "<-" : "<= (to the editor)", _nowMs, _m);
+@@ -364,6 +428,16 @@ namespace g1app
+ 			m_controlPackets.insert(m_controlPackets.end(), _m.begin() + 5, _m.end() - 2);	// after cmd/pid, before checksum
+ 			if(!(cc & 2))	// not the last one yet
+ 				return;
++            if(m_controlJob.voices) {
++                const auto header=unpack7(m_controlPackets);
++                // Header type33, then key/velocity ranges, bend, portamento,
++                // pedal, requested voices (five bits, zero based); see NME serializer.
++                if(header.size()>=11 && header[0]==33) {
++                    std::lock_guard<std::mutex> lock(m_mutex);
++                    m_requestedVoices[static_cast<size_t>(m_controlJob.slot)]=((header[6]>>1)&31)+1;
++                }
++                finish(_nowMs,true);return;
++            }
+ 			const auto list = decodeControls(unpack7(m_controlPackets));
+ 			{
+ 				std::lock_guard<std::mutex> lock(m_mutex);
+@@ -393,6 +467,7 @@ namespace g1app
+ 			if(_m[5] == PatchIdAck && slotOf(_m) == m_controlJob.slot)
+ 			{
+ 				m_controlPid = _m[6] & 0x7f;
++                {std::lock_guard<std::mutex> lock(m_mutex);m_slotPids[static_cast<size_t>(m_controlJob.slot)]=m_controlPid;}
+ 				m_controlNext = true;	// the assignment, or the read, at the next tick
+ 			}
+ 			return;
+@@ -409,10 +484,13 @@ namespace g1app
+ 			// not of one loaded through the PC Port, which it takes for the editor's own: the editor
+ 			// would never fetch it. So the link tells it, as the OS would have: the slot, and the
+ 			// patch's new id from this ACK (f0 33 50 06 01 38 00 01 33 f7 for slot A, id 1).
++            if(_m[5]!=LoadAck || _m.size()<=8 || (_m[6]&3)!=m_loadingSlot)return;
+ 			if(_m[5] == LoadAck && _m.size() > 8)
+ 			{
+ 				const uint8_t slot = _m[6] & 3, pid = _m[7] & 0x7f;
+ 				m_toEditor = frame(CcInfo, slot, {_m[4], InfoNewPatchInSlot, slot, pid});
++                std::lock_guard<std::mutex> lock(m_mutex);m_slotPids[slot]=pid;
++                m_loadStatus.busy=!m_loads.empty();m_loadStatus.ok=true;m_loadStatus.message="Stored patch loaded";++m_loadStatus.serial;
+ 			}
+ 			return finish(_nowMs, true);
+ 		}
+@@ -473,6 +551,7 @@ namespace g1app
+ 	// Under m_mutex.
+ 	void PresetsLink::uploadDone(const bool _ok, const std::string& _message)
+ 	{
++        if(_ok && !m_upload.frames.empty())m_slotPids[static_cast<size_t>(m_upload.slot)]=m_uploadPid;
+ 		m_uploadStatus.busy = !m_uploads.empty();
+ 		m_uploadStatus.ok = _ok;
+ 		m_uploadStatus.message = _message;
+@@ -482,6 +561,28 @@ namespace g1app
+ 
+ 	void PresetsLink::tick(const uint64_t _nowMs, std::vector<uint8_t>& _toG1)
+ 	{
++        {
++            std::lock_guard<std::mutex> lock(m_mutex);
++            // Live editor parameter writes preempt background reads, never a
++            // patch upload/load/store. No ACK is expected for $13/$40 writes.
++            if(!m_parameterWrites.empty() && m_state!=State::Uploading && m_state!=State::Storing && m_state!=State::Loading
++                && m_uploads.empty() && m_loads.empty()) {
++                if(m_state==State::Listing)m_readWanted[static_cast<size_t>(m_bank)]=true;
++                if(m_state!=State::Idle)finish(_nowMs);
++                for(const auto& p:m_parameterWrites) {
++                    if(m_slotPids[static_cast<size_t>(p.slot)]!=p.pid)continue;
++                    // Recorded editor frame: F0 33 (13<<2|slot) 06 pid 40
++                    // section module param value F7, with no checksum byte.
++                    const std::vector<uint8_t> message={0xf0,0x33,static_cast<uint8_t>(0x4c|p.slot),0x06,
++                        static_cast<uint8_t>(p.pid),0x40,static_cast<uint8_t>(p.section),static_cast<uint8_t>(p.module),
++                        static_cast<uint8_t>(p.param),static_cast<uint8_t>(p.value),0xf7};
++                    _toG1.insert(_toG1.end(),message.begin(),message.end());
++                    traceMsg("-> parameter",_nowMs,message);
++                }
++                m_parameterWrites.clear();m_lastActivity=_nowMs;return;
++            }
++        }
++
+ 		if(m_state == State::Uploading && m_uploadNext)
+ 		{
+ 			m_uploadNext = false;
+@@ -527,7 +628,8 @@ namespace g1app
+ 				return;
+ 			}
+ 			m_controlPackets.clear();
+-			request(frame(CcPatch, slot, {m_controlPid, GetControlMap}), State::ControlsRead, _nowMs, _toG1);
++			if(m_controlJob.voices)request(frame(CcPatch,slot,{m_controlPid,0x20,0x28}),State::ControlsRead,_nowMs,_toG1);
++            else request(frame(CcPatch, slot, {m_controlPid, GetControlMap}), State::ControlsRead, _nowMs, _toG1);
+ 			return;
+ 		}
+ 		if(m_state == State::Listing && m_pendingNext)
+@@ -547,6 +649,10 @@ namespace g1app
+ 				std::lock_guard<std::mutex> lock(m_mutex);
+ 				m_readWanted[static_cast<size_t>(m_bank)] = true;
+ 			}
++            else if(m_state==State::Loading) {
++                std::lock_guard<std::mutex> lock(m_mutex);m_loadStatus.busy=!m_loads.empty();m_loadStatus.ok=false;
++                m_loadStatus.message="The synth did not confirm the bank load";++m_loadStatus.serial;
++            }
+ 			else if(m_state == State::Uploading || m_state == State::Storing)
+ 			{
+ 				if(m_state == State::Uploading && !m_upload.abort.empty())
+@@ -587,7 +693,7 @@ namespace g1app
+ 		}
+ 		if(!m_loads.empty())
+ 		{
+-			const auto l = m_loads.front();
++			const auto l = m_loads.front();m_loadingSlot=l.slot;
+ 			m_loads.erase(m_loads.begin());
+ 			request(frame(CcPatch, static_cast<uint8_t>(l.slot), {0x41, 0x0a, static_cast<uint8_t>(l.slot), static_cast<uint8_t>(l.bank), static_cast<uint8_t>(l.position)}),
+ 				State::Loading, _nowMs, _toG1);
+diff --git a/app/presetslink.h b/app/presetslink.h
+index b074aa0..9e38265 100644
+--- a/app/presetslink.h
++++ b/app/presetslink.h
+@@ -49,6 +49,8 @@ namespace g1app
+ 		void storeSlot(int _slot, int _bank, int _position);
+ 		struct UploadStatus { bool busy = false, ok = false; std::string message; uint64_t serial = 0; };
+ 		UploadStatus uploadStatus() const;
++        UploadStatus loadStatus() const;
++        bool patchOperationBusy() const;
+ 		// A patch going in packet by packet: anything else sent to the PC Port meanwhile makes the OS
+ 		// drop it (#75, #81), so the editor's bytes wait (runner, EmuHost). Worker thread.
+ 		bool uploading() const { return m_state == State::Uploading; }
+@@ -61,6 +63,11 @@ namespace g1app
+ 		// until then; its revision grows with each reading.
+ 		struct Control { int ctrl = -1, section = 0, module = 0, param = 0; };
+ 		void readControls(int _slot);
++		void readVoices(int _slot);
++		int requestedVoices(int _slot) const;
++        bool setParameter(int slot, int section, int module, int param, int value);
++        int patchId(int slot) const;
++        void confirmParameter(int slot,int section,int module,int param,int value);
+ 		void assignControl(int _slot, int _section, int _module, int _param, int _ctrl, int _previous);
+ 		bool controls(int _slot, std::vector<Control>& _out, uint64_t& _revision) const;
+ 		// A ControlMap section (type 96, as GetPatch $61 brings it, unpacked): a count, then each
+@@ -98,11 +105,18 @@ namespace g1app
+ 		std::vector<Load> m_loads;		// wanted, oldest first
+ 		struct Upload { int slot = 0; std::vector<std::vector<uint8_t>> frames; std::vector<uint8_t> abort; int bank = -1, position = 0; };
+ 		std::vector<Upload> m_uploads;	// wanted, oldest first
+-		struct ControlJob { int slot = 0; bool assign = false; int section = 0, module = 0, param = 0, ctrl = -1, previous = -1; };
++		struct ControlJob { int slot = 0; bool assign = false; int section = 0, module = 0, param = 0, ctrl = -1, previous = -1; bool voices = false; };
+ 		std::vector<ControlJob> m_controlJobs;	// wanted, oldest first
+ 		struct SlotControls { bool known = false; uint64_t revision = 0; std::vector<Control> list; };
+ 		std::array<SlotControls, 4> m_controls{};
++		std::array<int,4> m_requestedVoices{-1,-1,-1,-1};
++        std::array<int,4> m_slotPids{-1,-1,-1,-1};
++        struct ParameterWrite { int slot, pid, section, module, param, value; };
++        std::vector<ParameterWrite> m_parameterWrites;
++        std::vector<ParameterWrite> m_parameterNotifications;
+ 		UploadStatus m_uploadStatus;
++        UploadStatus m_loadStatus;
++        int m_loadingSlot=-1;
+ 		std::atomic<uint64_t> m_revision{0};
+ 		std::atomic<int> m_readingBank{-1};
+ 
+diff --git a/app/synthsettings.cpp b/app/synthsettings.cpp
+index a23f01c..007d00b 100644
+--- a/app/synthsettings.cpp
++++ b/app/synthsettings.cpp
+@@ -165,10 +165,11 @@ namespace g1app
+ 	// ____________________________________________________________________________________________
+ 	// Worker thread
+ 
+-	void SynthSettingsLink::finish(const uint64_t _nowMs)
++	void SynthSettingsLink::finish(const uint64_t _nowMs, const bool _answered)
+ 	{
+ 		m_state = State::Idle;
+-		m_filterUntil = _nowMs + FilterTailMs;
++		// A completed reply has no tail: the next ACK can belong to a patch upload.
++		m_filterUntil = _answered ? 0 : _nowMs + FilterTailMs;
+ 		m_packets.clear();
+ 	}
+ 
+@@ -223,7 +224,7 @@ namespace g1app
+ 	{
+ 		const auto cc = ccOf(_m);
+ 		if(m_state == State::Greeting && cc == CcIAm && _m.size() > 4 && _m[4] == 0x01)
+-			return finish(_nowMs);		// m_readWanted is still set: tick() asks again
++			return finish(_nowMs, true);		// m_readWanted is still set: tick() asks again
+ 		if(m_state != State::Reading || !isPacket(cc) || _m.size() < 7)
+ 			return;
+ 		if(cc & 1)		// the first packet
+@@ -245,7 +246,7 @@ namespace g1app
+ 				++m_revision;
+ 			}
+ 			m_pidFresh = true;
+-			finish(_nowMs);
++			finish(_nowMs, true);
+ 		}
+ 		m_packets.clear();
+ 	}
+diff --git a/app/synthsettings.h b/app/synthsettings.h
+index 11571f6..0560b49 100644
+--- a/app/synthsettings.h
++++ b/app/synthsettings.h
+@@ -96,7 +96,7 @@ namespace g1app
+ 
+ 		void startNext(uint64_t _nowMs, std::vector<uint8_t>& _toG1);
+ 		void request(const std::vector<uint8_t>& _msg, State _state, uint64_t _timeoutMs, uint64_t _nowMs, std::vector<uint8_t>& _toG1);
+-		void finish(uint64_t _nowMs);
++		void finish(uint64_t _nowMs, bool _answered = false);
+ 		bool hides(uint8_t _cc, uint64_t _nowMs) const;
+ 		void takeReply(const std::vector<uint8_t>& _m, uint64_t _nowMs);
+ 

@@ -1,0 +1,59 @@
+[Header]
+Version=Nord Modular patch 3.0
+0 127 0 127 2 0 0 1 4000 2 1 1 0 0 0 0 1 1 1 1 1 1 1
+[/Header]
+[ModuleDump]
+1
+1 7 0 0
+2 19 0 6
+3 4 0 12
+[/ModuleDump]
+[ModuleDump]
+0
+[/ModuleDump]
+[CurrentNoteDump]
+64 0 0 64 0 0
+[/CurrentNoteDump]
+[CableDump]
+1
+0 2 0 0 1 0 1
+0 3 0 0 2 0 1
+0 3 1 0 2 0 1
+[/CableDump]
+[CableDump]
+0
+[/CableDump]
+[ParameterDump]
+1
+1 7 10 64 64 64 64 0 0 0 0 0 0
+2 19 3 100 0 0
+3 4 3 127 0 0
+[/ParameterDump]
+[ParameterDump]
+0
+[/ParameterDump]
+[MorphMapDump]
+0 0 0 0
+[/MorphMapDump]
+[KeyboardAssignment]
+0 0 0 0
+[/KeyboardAssignment]
+[KnobMapDump]
+1 1 0 0
+1 2 0 1
+[/KnobMapDump]
+[CtrlMapDump]
+[/CtrlMapDump]
+[NameDump]
+1
+1 Oscillator
+2 Level
+3 Output
+[/NameDump]
+[NameDump]
+0
+[/NameDump]
+[Notes]
+Project-owned integration test: a continuous sine tone, knob 1 frequency and knob 2 mixer level.
+No Clavia firmware or commercial patch content. Nord .pch syntax; no synthesis implementation.
+[/Notes]
