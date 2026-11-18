@@ -1,4 +1,6 @@
-# Nord Modular NI Interface
+# A brutalist interface for G1-Emu and Native Instruments controllers
+
+**Work in progress.** The core controller and bridge functionality is in place. The screen design, layout and visual feedback will be refined in future updates.
 
 Control Nord Modular G1 patches in the official **G1-Emu VST** from a **Maschine MK3** or **Komplete Kontrol S49 Mk2** on Apple Silicon macOS.
 
@@ -37,10 +39,10 @@ The built-in renderer produced these dual-screen captures using development fixt
 
 ## Patch library and troubleshooting
 
-The service keeps its data under `~/Library/Application Support/Modular Machine/`. Its `keyboard-preferences.json` records the active `patch_dir`. To import a different local `.pch` library, set `source_patch_dir` to the absolute source path, remove the `patch_dir` entry and rerun the launcher. The installer copies the patches into a private library and records its new `patch_dir`. Add patches to the active folder and use **Refresh** in Browser. The source folder stays intact. The repo includes three development fixtures.
+The launcher prints the data folder and service label. New installations use `~/Library/Application Support/Nord Modular NI Interface/`. In that folder, `keyboard-preferences.json` records the active `patch_dir`. To import a different local `.pch` library, set `source_patch_dir` to the absolute source path, remove the `patch_dir` entry and rerun the launcher. The installer copies the patches into a private library and records its new `patch_dir`. Add patches to the active folder and use **Refresh** in Browser. The source folder stays intact. The repo includes three development fixtures.
 
 - **Bridge is waiting.** Check that the official VST is open, DirectLink is enabled and the connection is free. The service picks the first available plugin on ports `47310–47317` and keeps it until it closes. To select an instance, add its numeric port as `"direct_port"` in `keyboard-preferences.json`, preserving the library settings. Remove the key for automatic selection.
 - **Another app has the panel.** Select the bridge in the NI instance menu. The shortcut and display name depend on the controller. [Native shortcuts](docs/key-assignments.md#settings-and-native-shortcuts)
 - **Check the service.** Read `keyboard-status.json`, `keyboard-service.log`, `keyboard-controller.log` and `adapter-session.log` in the service data folder. For launch failures, check `keyboard-launch-error.log`. For screen lag, set `"trace_pipeline": true`, restart the bridge with its launcher, then run `python3 scripts/trace_keyboard.py` to summarize the ten-minute trace. Remove the setting when finished. The trace ends at host transfer and cannot time physical LCD scanout.
 
-To stop the bridge for the current login session, run `launchctl bootout "gui/$(id -u)/local.modular-machine.keyboard"`. G1-Emu and NI services keep running. Run the launcher to start the bridge again.
+To stop the bridge for the current login session, run `launchctl bootout "gui/$(id -u)/local.nord-modular-ni-interface.keyboard"`. If your launcher prints a different label, use that label after the final slash. G1-Emu and NI services keep running. Run the launcher to start the bridge again.

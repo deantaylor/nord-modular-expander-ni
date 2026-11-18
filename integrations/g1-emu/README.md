@@ -14,7 +14,7 @@ Run commands from the repository root. The builder fetches pinned source into `b
 
 Use a compatible local rack OS 3.03 ROM at `roms/NORD-MODULAR-RACK-VER-3.03.BIN` or pass `--rom PATH` to the launcher. The launcher supports `--patch-dir PATH`, `--flash PATH` and `--port PORT`; use disposable banks and a separate port for testing. `--demo` seeds a new dedicated bank. Exiting the controller leaves the synth running. Native bridge changes require a normal emulator restart after saving the user's work.
 
-Build with `--plugins` to produce the historical **Modular Machine G1** instrument and **Modular Machine G1 FX** VST3/AU and the test host used by the official adapter fixtures. To attach to a legacy plugin, run `python3 scripts/run_machine.py --plugin --port PORT --no-build` with the port shown in its Settings.
+Build with `--plugins` to produce the legacy instrument and FX VST3/AU bundles and the test host used by the official adapter fixtures. To attach to a legacy plugin, run `python3 scripts/run_machine.py --plugin --port PORT --no-build` with the port shown in its Settings.
 
 ## Source pins and maintenance
 
@@ -29,4 +29,4 @@ Build with `--plugins` to produce the historical **Modular Machine G1** instrume
 
 [Mk3ControlBridge.h](Mk3ControlBridge.h) implements the opt-in `G1_MK3_PORT` loopback protocol, separate from DirectLink. Socket I/O and bounded engine work are isolated. Writes use confirmed patch identity and bank/file loads require the matching firmware outcome. The standalone path uses editor parameter messages when the patch ID is known and supports pad MIDI through the existing emulator input queue.
 
-Focused checks include [check_g1.py](../../scripts/check_g1.py), [check_encoder_path.py](../../scripts/check_encoder_path.py) and [test_launcher.py](../../scripts/test_launcher.py). Developer packaging uses [package_local.py](../../scripts/package_local.py) and [check_package.py](../../scripts/check_package.py). The source packager currently expects the checkout locations in its `UPSTREAM` map; prepare those with the builder's directory overrides.
+Focused checks include [check_g1.py](../../scripts/check_g1.py), [check_encoder_path.py](../../scripts/check_encoder_path.py) and [test_launcher.py](../../scripts/test_launcher.py). Developer packaging uses [package_local.py](../../scripts/package_local.py) and [check_package.py](../../scripts/check_package.py). The source packager uses the builder's default checkouts under `build/g1-work/`.

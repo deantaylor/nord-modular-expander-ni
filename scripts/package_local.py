@@ -12,8 +12,15 @@ import subprocess
 import tarfile
 
 ROOT=Path(__file__).resolve().parents[1]
-UPSTREAM={'g1-emu':Path('/tmp/modular-machine-g1-emu'),'gearmulator':Path('/tmp/modular-machine-g1-gearmulator'),
-          'dsp56300':Path('/tmp/modular-machine-g1-dsp56300'),'juce':Path('/tmp/modular-machine-g1-juce')}
+APP_NAME = 'Nord Modular NI Interface'
+SOURCE_ROOT = 'nord-modular-ni-interface-source'
+SOURCE_CHECKOUTS = ROOT / 'build/g1-work'
+UPSTREAM = {
+    'g1-emu': SOURCE_CHECKOUTS / 'source',
+    'gearmulator': SOURCE_CHECKOUTS / 'gearmulator',
+    'dsp56300': SOURCE_CHECKOUTS / 'dsp',
+    'juce': SOURCE_CHECKOUTS / 'juce',
+}
 
 
 def digest(path):
@@ -58,7 +65,7 @@ def source_archive(path):
                         if file.suffix.lower()=='.bin':continue
                     elif not registry:
                         if file.suffix.lower() in forbidden|{'.bin','.pch'}:continue
-                    archive.add(file,arcname=str(Path('modular-machine-source',prefix,relative)),recursive=False);entries+=1
+                    archive.add(file,arcname=str(Path(SOURCE_ROOT,prefix,relative)),recursive=False);entries+=1
                     if registry:file_hashes[relative.as_posix()]=digest(file)
             return file_hashes
         add_tree(ROOT,'project',project=True)
@@ -69,11 +76,11 @@ def source_archive(path):
             source=Path(package['manifest_path']).parent
             hashes=add_tree(source,'crates/'+source.name,registry=True)
             checksum=json.dumps({'files':hashes,'package':checksums[(package['name'],package['version'])]},sort_keys=True).encode()
-            info=tarfile.TarInfo('modular-machine-source/crates/'+source.name+'/.cargo-checksum.json');info.size=len(checksum);archive.addfile(info,io.BytesIO(checksum));entries+=1
+            info=tarfile.TarInfo(SOURCE_ROOT+'/crates/'+source.name+'/.cargo-checksum.json');info.size=len(checksum);archive.addfile(info,io.BytesIO(checksum));entries+=1
         config=b'[source.crates-io]\nreplace-with="bundled"\n[source.bundled]\ndirectory="../crates"\n'
-        info=tarfile.TarInfo('modular-machine-source/project/.cargo/config.toml');info.size=len(config);archive.addfile(info,io.BytesIO(config))
+        info=tarfile.TarInfo(SOURCE_ROOT+'/project/.cargo/config.toml');info.size=len(config);archive.addfile(info,io.BytesIO(config))
         build=b'''# Source snapshot build (macOS arm64)\n\nFrom project/: cargo build --locked --offline. Native snapshots already include\nthe local integration patch and bridge headers. From the source bundle root:\n\ncmake -S native/g1-emu -B native-build -DCMAKE_BUILD_TYPE=Release -DCMAKE_OSX_ARCHITECTURES=arm64 -DGEARMULATOR_DIR="$PWD/native/gearmulator" -DG1_DSP56300_DIR="$PWD/native/dsp56300" -DG1_JUCE_DIR="$PWD/native/juce" -DG1_BACKEND=juce -DG1_LTO=OFF -DG1_MK3_PLUGINS=ON\ncmake --build native-build --target g1gui g1mk3check g1plugin_VST3 g1pluginfx_VST3 g1plugin_AU g1pluginfx_AU --parallel 4\n\nA compatible user-supplied ROM is needed to run, never to compile. The bundle\ncontains no ROM, user banks, recordings or user patch library. Existing source\nlicenses remain with their respective components. See project/integrations/g1-emu\nand project/vendor for attribution and modification notices.\n'''
-        info=tarfile.TarInfo('modular-machine-source/BUILD.md');info.size=len(build);archive.addfile(info,io.BytesIO(build))
+        info=tarfile.TarInfo(SOURCE_ROOT+'/BUILD.md');info.size=len(build);archive.addfile(info,io.BytesIO(build))
     return {'files':entries,'rustCrates':len(packages),'sha256':digest(path)}
 
 
@@ -83,11 +90,11 @@ def main():
     args=parser.parse_args()
     version=re.search(r'^version\s*=\s*"([^"]+)"',(ROOT/'Cargo.toml').read_text(),re.M)[1]
     output=ROOT/'build/package';output.mkdir(parents=True,exist_ok=True)
-    keyboard_plugin_launch=output/'Komplete Keyboard Plugin.command'
-    keyboard_plugin_launch.write_text('#!/bin/zsh\npackage_dir="${0:A:h}"\nexec /usr/bin/python3 "$package_dir/Modular Machine '+version+'.app/Contents/Resources/project/scripts/run_packaged.py" --plugin --controller komplete "$@"\n');keyboard_plugin_launch.chmod(0o755)
-    keyboard_launch=output/'Komplete Keyboard.command'
-    keyboard_launch.write_text('#!/bin/zsh\npackage_dir="${0:A:h}"\nexec /usr/bin/python3 "$package_dir/Modular Machine '+version+'.app/Contents/Resources/project/scripts/run_packaged.py" --controller komplete "$@"\n');keyboard_launch.chmod(0o755)
-    app=output/f'Modular Machine {version}.app'
+    keyboard_plugin_launch=output/'KompleteKontrol Plugin.command'
+    keyboard_plugin_launch.write_text('#!/bin/zsh\npackage_dir="${0:A:h}"\nexec /usr/bin/python3 "$package_dir/'+APP_NAME+' '+version+'.app/Contents/Resources/project/scripts/run_packaged.py" --plugin --controller komplete "$@"\n');keyboard_plugin_launch.chmod(0o755)
+    keyboard_launch=output/'KompleteKontrol Standalone.command'
+    keyboard_launch.write_text('#!/bin/zsh\npackage_dir="${0:A:h}"\nexec /usr/bin/python3 "$package_dir/'+APP_NAME+' '+version+'.app/Contents/Resources/project/scripts/run_packaged.py" --controller komplete "$@"\n');keyboard_launch.chmod(0o755)
+    app=output/f'{APP_NAME} {version}.app'
     if app.exists():shutil.rmtree(app)
     contents=app/'Contents';project=contents/'Resources/project';(contents/'MacOS').mkdir(parents=True);project.mkdir(parents=True)
     for dirname in ['scripts','integrations','docs']:
@@ -107,10 +114,10 @@ def main():
         value=json.loads(preferences.read_text());defaults={k:v for k,v in value.items() if k in {'port','rom','flash','patch_dir'}}
         (project/'local-defaults.json').write_text(json.dumps(defaults,indent=2))
     launch=contents/'Resources/Launch.command'
-    launch.write_text('''#!/bin/zsh\napp_resources="${0:A:h}"\nexport MODULAR_MACHINE_STATE_DIR="${MODULAR_MACHINE_STATE_DIR:-${HOME}/Library/Application Support/Modular Machine}"\nexec /usr/bin/python3 "$app_resources/project/scripts/run_packaged.py" "$@"\n''');launch.chmod(0o755)
-    executable=contents/'MacOS/Modular Machine'
+    launch.write_text('''#!/bin/zsh\napp_resources="${0:A:h}"\nexec /usr/bin/python3 "$app_resources/project/scripts/run_packaged.py" "$@"\n''');launch.chmod(0o755)
+    executable=contents/'MacOS'/APP_NAME
     executable.write_text('''#!/bin/zsh\napp_contents="${0:A:h:h}"\nexec /usr/bin/open -a Terminal "$app_contents/Resources/Launch.command"\n''');executable.chmod(0o755)
-    with (contents/'Info.plist').open('wb') as file:plistlib.dump({'CFBundleName':'Modular Machine','CFBundleDisplayName':'Modular Machine','CFBundleIdentifier':'local.modular-machine.mk3','CFBundleExecutable':'Modular Machine','CFBundlePackageType':'APPL','CFBundleShortVersionString':version,'CFBundleVersion':__import__('datetime').datetime.now().strftime('%Y%m%d'),'NSHighResolutionCapable':True},file)
+    with (contents/'Info.plist').open('wb') as file:plistlib.dump({'CFBundleName':APP_NAME,'CFBundleDisplayName':APP_NAME,'CFBundleIdentifier':'local.nord-modular-ni-interface','CFBundleExecutable':APP_NAME,'CFBundlePackageType':'APPL','CFBundleShortVersionString':version,'CFBundleVersion':__import__('datetime').datetime.now().strftime('%Y%m%d'),'NSHighResolutionCapable':True},file)
     licenses=contents/'Resources/Licenses';licenses.mkdir()
     for source,name in [(ROOT/'vendor/encdr/LICENSE','Encdr-GPL.txt'),(ROOT/'vendor/encdr-view/LICENSE','EncdrView-GPL.txt'),(ROOT/'screens/fonts/OFL.txt','Inter-OFL.txt'),(ROOT/'build/g1-emu/G1-Emu-LICENSE','G1-Emu-GPL.txt')]:shutil.copy2(source,licenses/name)
     shutil.copy2(ROOT/'screens/THIRD_PARTY_NOTICES.md',licenses/'Module-Visuals-Attribution.md')
@@ -143,16 +150,16 @@ def main():
                 with (bundle/'Contents/Info.plist').open('rb') as f:info=plistlib.load(f)
                 items.append({'format':fmt,'path':str(bundle.relative_to(output)),'sha256':digest(bundle/'Contents/MacOS'/info['CFBundleExecutable']),'version':info.get('CFBundleShortVersionString')})
         manifest['plugins']=items
-        plugin_launch=output/'Modular Machine Plugin.command'
-        plugin_launch.write_text('#!/bin/zsh\npackage_dir="${0:A:h}"\nexec /usr/bin/python3 "$package_dir/Modular Machine '+version+'.app/Contents/Resources/project/scripts/run_packaged.py" --plugin "$@"\n');plugin_launch.chmod(0o755)
+        plugin_launch=output/'Maschine Plugin.command'
+        plugin_launch.write_text('#!/bin/zsh\npackage_dir="${0:A:h}"\nexec /usr/bin/python3 "$package_dir/'+APP_NAME+' '+version+'.app/Contents/Resources/project/scripts/run_packaged.py" --plugin "$@"\n');plugin_launch.chmod(0o755)
         installer=output/'Install Plugins.command'
-        installer.write_text('#!/bin/zsh\npackage_dir="${0:A:h}"\nexec /usr/bin/python3 "$package_dir/Modular Machine '+version+'.app/Contents/Resources/project/scripts/install_plugins.py" --source "$package_dir/Plugins" "$@"\n');installer.chmod(0o755)
-        (destination/'README.txt').write_text('Modular Machine G1 / G1 FX: Apple Silicon VST3 and AU, locally ad-hoc signed.\nInstall Plugins.command copies these newly named builds into your per-user plugin folders.\nLoad one in a native Apple Silicon DAW, select your existing rack OS3.03 ROM in plugin Settings, enable audio processing, then launch Modular Machine Plugin.command.\nQuit the standalone controller before switching. With multiple plugin instances use --list-plugins and --plugin --port PORT; the port is shown in plugin Settings.\nGPL notices and the matching source archive are beside this folder/in the app Resources/Licenses. No ROM or user banks included.\n')
+        installer.write_text('#!/bin/zsh\npackage_dir="${0:A:h}"\nexec /usr/bin/python3 "$package_dir/'+APP_NAME+' '+version+'.app/Contents/Resources/project/scripts/install_plugins.py" --source "$package_dir/Plugins" "$@"\n');installer.chmod(0o755)
+        (destination/'README.txt').write_text('Legacy G1-Emu plugins: Apple Silicon VST3 and AU, locally ad-hoc signed.\nInstall Plugins.command copies these legacy builds into your per-user plugin folders.\nLoad one in a native Apple Silicon DAW, select your existing rack OS3.03 ROM in plugin Settings, enable audio processing, then launch Maschine Plugin.command.\nQuit the standalone controller before switching. With multiple plugin instances use --list-plugins and --plugin --port PORT; the port is shown in plugin Settings.\nGPL notices and the matching source archive are beside this folder/in the app Resources/Licenses. No ROM or user banks included.\n')
     if not args.skip_source:
-        source=output/f'modular-machine-{version}-source.tar.gz';manifest['sourceArchive']={'name':source.name,**source_archive(source)}
+        source=output/f'nord-modular-ni-interface-{version}-source.tar.gz';manifest['sourceArchive']={'name':source.name,**source_archive(source)}
     (output/'manifest.json').write_text(json.dumps(manifest,indent=2)+'\n')
     (contents/'Resources/manifest.json').write_text(json.dumps(manifest,indent=2)+'\n')
-    (contents/'Resources/README.txt').write_text('Local ad-hoc-signed macOS arm64 build (no Developer ID/notarization). Launches the matching G1-Emu/controller pair.\nROM, patch library and banks remain external. Runtime preferences and logs use\n~/Library/Application Support/Modular Machine. Local defaults preserve existing\nROM/library/bank paths; there is no bundled firmware or user patch library.\nThe matching source archive and provenance manifest are beside this app.\n')
+    (contents/'Resources/README.txt').write_text('Local ad-hoc-signed macOS arm64 build (no Developer ID/notarization). Launches the matching G1-Emu/controller pair.\nROM, patch library and banks remain external. Runtime preferences and logs use\nthe application support folder. Local defaults preserve existing\nROM/library/bank paths; there is no bundled firmware or user patch library.\nThe matching source archive and provenance manifest are beside this app.\n')
     subprocess.run(['/usr/bin/codesign','--force','--sign','-',str(app)],check=True,capture_output=True)
     subprocess.run(['/usr/bin/codesign','--verify','--deep','--strict',str(app)],check=True,capture_output=True)
     print(app)

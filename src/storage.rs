@@ -33,7 +33,12 @@ pub fn load(path: &Path) -> Result<Option<Project>, String> {
     }
     let doc: Document = serde_json::from_slice(&bytes)
         .map_err(|e| format!("Invalid project JSON ({}): {e}", path.display()))?;
-    if doc.format != "modular-machine-project" || doc.version != 1 || doc.engine != "mock_g1" {
+    if !matches!(
+        doc.format.as_str(),
+        "nord-modular-ni-interface-project" | "modular-machine-project"
+    ) || doc.version != 1
+        || doc.engine != "mock_g1"
+    {
         return Err("Unsupported project format/version/engine; expected mock project v1".into());
     }
     doc.project.validate()?;
@@ -43,7 +48,7 @@ pub fn save(path: &Path, project: &Project) -> Result<(), String> {
     check_extension(path)?;
     project.validate()?;
     let bytes = serde_json::to_vec_pretty(&Document {
-        format: "modular-machine-project".into(),
+        format: "nord-modular-ni-interface-project".into(),
         version: 1,
         engine: "mock_g1".into(),
         project: project.clone(),
@@ -119,6 +124,11 @@ mod tests {
         project.slots[0].patch.modules[0].parameters[0].value = f64::NAN;
         assert!(save(&path, &project).is_err());
         assert_eq!(fs::read(&path).unwrap(), before);
+        let mut previous: serde_json::Value = serde_json::from_slice(&before).unwrap();
+        assert_eq!(previous["format"], "nord-modular-ni-interface-project");
+        previous["format"] = "modular-machine-project".into();
+        fs::write(&path, serde_json::to_vec(&previous).unwrap()).unwrap();
+        assert!(load(&path).unwrap().is_some());
         fs::remove_file(path).unwrap();
     }
     #[test]

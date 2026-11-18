@@ -1,6 +1,7 @@
 """Hidden-WebKit module diagram QA using explicit fixtures, no synth or hardware access."""
 import copy,json,math,socket,threading,time
 from pathlib import Path
+from service_paths import BRIDGE_SERVICE
 from PIL import Image
 import check_mock
 ROOT=Path(__file__).resolve().parents[1]
@@ -31,7 +32,7 @@ class Fixture:
                 try:self.client,_=self.listener.accept();break
                 except socket.timeout:continue
             if self.client is None:return
-            file=self.client.makefile('rwb');file.write(b'{"service":"modular-machine-g1","protocol":1,"instance":"visual-fixture"}\n');file.flush()
+            file=self.client.makefile('rwb');file.write((json.dumps(dict(service=BRIDGE_SERVICE, protocol=1, instance='visual-fixture')) + '\n').encode());file.flush()
             while not self.stop.is_set():
                 line=file.readline()
                 if not line:break

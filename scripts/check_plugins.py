@@ -3,6 +3,7 @@ import hashlib
 import json
 import os
 from pathlib import Path
+from build_g1 import LEGACY_PLUGIN_NAME
 import re
 import signal
 import subprocess
@@ -32,7 +33,7 @@ def main():
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--fx',action='store_true')
     args=parser.parse_args()
-    name='Modular Machine G1'+(' FX' if args.fx else '')
+    name=LEGACY_PLUGIN_NAME+(' FX' if args.fx else '')
     bundle=ROOT/'build/g1-emu/plugins/VST3'/(name+'.vst3')
     assert bundle.is_dir(),bundle
     subprocess.run(['codesign','--verify','--deep','--strict',str(bundle)],check=True)
@@ -120,7 +121,7 @@ def main():
         runtime=folder/'controller';runtime.mkdir()
         controller_log=(folder/'controller.log').open('w')
         launcher=subprocess.Popen(['python3',str(ROOT/'scripts/run_machine.py'),'--plugin','--port',str(ports[0]),'--mock','--no-build','--patch-dir',str(ROOT/'patches')],stdin=subprocess.PIPE,stdout=controller_log,stderr=subprocess.STDOUT,
-                                  env={**os.environ,'MODULAR_MACHINE_STATE_DIR':str(runtime),'MK3_HIDDEN_PREVIEW':'1'})
+                                  env={**os.environ,'NORD_MODULAR_NI_STATE_DIR':str(runtime),'MK3_HIDDEN_PREVIEW':'1'})
         wait(lambda:(folder/'controller.log').read_text(),lambda t:'G1-EMU / LIVE' in t,20)
         launcher.stdin.write(b'button keyboard\npad 1 0.8\n');launcher.stdin.flush()
         wait(lambda:(folder/'controller.log').read_text(),lambda t:'"heldPads":[0]' in t,10)

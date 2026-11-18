@@ -9,6 +9,7 @@ from pathlib import Path
 import subprocess
 import tarfile
 import tempfile
+from package_local import APP_NAME, SOURCE_ROOT
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -20,7 +21,7 @@ def sha256(path):
 def main():
     output = ROOT / 'build/package'
     manifest = json.loads((output / 'manifest.json').read_text())
-    app = output / ('Modular Machine ' + manifest['version'] + '.app')
+    app = output / (APP_NAME + ' ' + manifest['version'] + '.app')
     project = app / 'Contents/Resources/project'
     subprocess.run(['codesign', '--verify', '--deep', '--strict', str(app)], check=True)
     assert sha256(project / 'target/debug/nord-modular-ni-interface') == manifest['controllerSha256']
@@ -36,7 +37,7 @@ def main():
         assert sha256(bundle/'Contents/MacOS'/info['CFBundleExecutable'])==plugin['sha256']
     with tempfile.TemporaryDirectory(prefix='mk3-package-') as temporary:
         work = Path(temporary)
-        env = {**os.environ, 'MODULAR_MACHINE_STATE_DIR': str(work / 'state')}
+        env = {**os.environ, 'NORD_MODULAR_NI_STATE_DIR': str(work / 'state')}
         help_text = subprocess.check_output(['/usr/bin/python3', str(project / 'scripts/run_packaged.py'), '--help'], env=env, text=True)
         assert '--patch-dir' in help_text
         assert not (project / 'g1-state').exists()
@@ -82,9 +83,9 @@ def main():
             for member in archive.getmembers():
                 path = Path(member.name)
                 assert not path.is_absolute() and '..' not in path.parts and member.isfile(), member.name
-                assert path.parts[0] == 'modular-machine-source'
+                assert path.parts[0] == SOURCE_ROOT
             archive.extractall(work)
-        source_root = work / 'modular-machine-source'
+        source_root = work / SOURCE_ROOT
         cargo_env = {**env, 'CARGO_HOME': str(work / 'empty-cargo-home')}
         subprocess.run(['cargo', 'metadata', '--locked', '--offline', '--format-version', '1'], cwd=source_root / 'project', env=cargo_env, check=True, stdout=subprocess.DEVNULL)
         native = source_root / 'native'

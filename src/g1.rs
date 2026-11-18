@@ -168,7 +168,11 @@ impl Rpc {
             id: 0,
         };
         let hello = rpc.read(stop)?;
-        if hello["service"] != "modular-machine-g1" || hello["protocol"] != 1 {
+        if !matches!(
+            hello["service"].as_str(),
+            Some("nord-modular-ni-interface-g1" | "modular-machine-g1")
+        ) || hello["protocol"] != 1
+        {
             return Err(
                 "Not a compatible G1 controller bridge (stock DirectLink is a different protocol)"
                     .into(),
@@ -2288,7 +2292,7 @@ mod tests {
             writeln!(
                 stream,
                 "{}",
-                json!({"service":"modular-machine-g1","protocol":1,"instance":"storm-test"})
+                json!({"service":"nord-modular-ni-interface-g1","protocol":1,"instance":"storm-test"})
             )
             .unwrap();
             let mut reader = BufReader::new(stream.try_clone().unwrap());

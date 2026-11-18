@@ -22,7 +22,7 @@ def main():
             host=subprocess.Popen([*sandbox,str(ROOT/'build/g1-emu/g1mk3plugincheck'),str(ROOT/'build/g1-official/alpha30/G1-Emu.vst3')],stdin=subprocess.PIPE,stdout=log,stderr=log,text=True,env={**os.environ,'G1_ROM':str(ROOT/'roms/NORD-MODULAR-RACK-VER-3.03.BIN'),'G1_DATA_DIR':str(work),'G1_PLUGIN_PC_PORT':'0'})
         port=wait(lambda:next((p for p in discover() if p not in known),None))
         (work/'keyboard-preferences.json').write_text(json.dumps({'direct_port':port,'patch_dir':str(ROOT/'patches')}))
-        with (work/'service-output.log').open('w') as log:service=subprocess.Popen(['/usr/bin/python3','-B',str(ROOT/'scripts/keyboard_service.py'),'--mock','--controller',args.controller],stdout=log,stderr=log,env={**os.environ,'MODULAR_MACHINE_STATE_DIR':str(work),'MK3_HIDDEN_PREVIEW':'1'})
+        with (work/'service-output.log').open('w') as log:service=subprocess.Popen(['/usr/bin/python3','-B',str(ROOT/'scripts/keyboard_service.py'),'--mock','--controller',args.controller],stdout=log,stderr=log,env={**os.environ,'NORD_MODULAR_NI_STATE_DIR':str(work),'MK3_HIDDEN_PREVIEW':'1'})
         def state():
             try:return json.loads((work/'keyboard-status.json').read_text())
             except (OSError,ValueError):return {}
@@ -32,7 +32,7 @@ def main():
         wait(lambda:(work/'keyboard-controller.log').exists() and 'G1-EMU / LIVE' in (work/'keyboard-controller.log').read_text(),30)
         print(f'PASS official plugin discovery starts one external adapter and hidden {CONTROLLERS[args.controller]} controller')
         # A second watcher exits without replacing the first or creating controller instances.
-        duplicate=subprocess.run(['/usr/bin/python3','-B',str(ROOT/'scripts/keyboard_service.py'),'--mock'],env={**os.environ,'MODULAR_MACHINE_STATE_DIR':str(work)},capture_output=True,timeout=5)
+        duplicate=subprocess.run(['/usr/bin/python3','-B',str(ROOT/'scripts/keyboard_service.py'),'--mock'],env={**os.environ,'NORD_MODULAR_NI_STATE_DIR':str(work)},capture_output=True,timeout=5)
         assert duplicate.returncode==0 and state()['controllerPid']==active['controllerPid']
         host.stdin.write('{"method":"quit"}\n');host.stdin.flush();host.wait(timeout=15)
         wait(lambda:state().get('state')=='waiting',15)

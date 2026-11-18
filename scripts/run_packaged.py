@@ -2,10 +2,11 @@
 import json
 import os
 from pathlib import Path
+from service_paths import STATE_DIR_ENV, state_directory
 import sys
 
 ROOT=Path(__file__).resolve().parents[1]
-os.environ.setdefault('MODULAR_MACHINE_STATE_DIR',str(Path.home()/'Library/Application Support/Modular Machine'))
+os.environ.setdefault(STATE_DIR_ENV, str(state_directory()))
 from run_machine import PREFERENCES, STATE, write_preferences, main
 
 if __name__=='__main__':

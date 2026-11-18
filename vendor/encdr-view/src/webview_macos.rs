@@ -26,7 +26,7 @@ where
         let mut opt = cell.borrow_mut();
         if opt.is_none() {
             let mut event_loop = EventLoop::new();
-            if std::env::var_os("MODULAR_MACHINE_BACKGROUND").is_some() {
+            if std::env::var_os("NORD_MODULAR_NI_BACKGROUND").is_some() {
                 event_loop.set_activation_policy(ActivationPolicy::Accessory);
                 event_loop.set_dock_visibility(false);
                 event_loop.set_activate_ignoring_other_apps(false);

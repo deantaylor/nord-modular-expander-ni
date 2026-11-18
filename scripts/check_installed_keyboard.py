@@ -1,10 +1,11 @@
 """Check the installed per-user watcher with a RAM-only official VST test host."""
 from pathlib import Path
+from service_paths import state_directory
 import json,os,subprocess,time
 from check_official_plugin import ROOT,digest,wait
 
 def main():
-    state_dir=Path.home()/'Library/Application Support/Modular Machine'
+    state_dir=state_directory()
     def status():
         try:return json.loads((state_dir/'keyboard-status.json').read_text())
         except (OSError,ValueError):return {}

@@ -4,8 +4,9 @@ from contextlib import ExitStack
 import fcntl,json,logging,os,signal,socket,subprocess,time
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
+from service_paths import BRIDGE_SERVICE, LEGACY_BRIDGE_SERVICE, state_directory
 ROOT=Path(__file__).resolve().parents[1]
-STATE=Path(os.environ.get('MODULAR_MACHINE_STATE_DIR',Path.home()/'Library/Application Support/Modular Machine'))
+STATE=state_directory()
 STOP=False
 CONTROLLERS={'komplete':'Komplete Kontrol S49 Mk2','maschine':'Maschine MK3'}
 
@@ -47,7 +48,7 @@ def bridge_ready(port):
                 part=stream.recv(4096)
                 if not part:return False
                 data.extend(part)
-            hello=json.loads(data.partition(b'\n')[0]);return hello.get('hostType')=='official-plugin' and hello.get('service')=='modular-machine-g1'
+            hello=json.loads(data.partition(b'\n')[0]);return hello.get('hostType')=='official-plugin' and hello.get('service') in (BRIDGE_SERVICE, LEGACY_BRIDGE_SERVICE)
     except (OSError,ValueError):return False
 
 def patch_directory():
@@ -65,7 +66,7 @@ def preferred_port():
     except (OSError,ValueError):return None
 
 def paths():
-    adapter=ROOT/'bin/g1keyboardadapter';controller=ROOT/'bin/modular-machine-keyboard'
+    adapter=ROOT/'bin/g1keyboardadapter';controller=ROOT/'bin/nord-modular-ni-interface'
     if not adapter.exists():adapter=ROOT/'build/g1-official/adapter-build/g1keyboardadapter_artefacts/Release/g1keyboardadapter'
     if not controller.exists():controller=ROOT/'target/release/nord-modular-ni-interface'
     return adapter,controller
@@ -110,7 +111,7 @@ def run(mock=False, profile='komplete'):
             if any((f:=acquire(p)) is None or not ownership.enter_context(f) for p in sorted(locks)):
                 ownership.close();ownership=None;time.sleep(1);continue
             with socket.socket() as probe:probe.bind(('127.0.0.1',0));json_port=probe.getsockname()[1]
-            env={**os.environ,'MODULAR_MACHINE_BACKGROUND':'1','MK3_BROWSER_STATE':str(STATE/'keyboard-browser-state.json')}
+            env={**os.environ,'NORD_MODULAR_NI_BACKGROUND':'1','MK3_BROWSER_STATE':str(STATE/'keyboard-browser-state.json')}
             try:preferences=json.loads((STATE/'keyboard-preferences.json').read_text())
             except (OSError,ValueError):preferences={}
             if preferences.get('trace_pipeline') is True:

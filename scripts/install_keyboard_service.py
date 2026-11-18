@@ -2,9 +2,9 @@
 from pathlib import Path
 import argparse,json,os,plistlib,shutil,subprocess,tempfile,time
 from keyboard_service import CONTROLLERS
+from service_paths import STATE_DIR_ENV, service_label, state_directory
 ROOT=Path(__file__).resolve().parents[1]
-STATE=Path.home()/'Library/Application Support/Modular Machine'
-LABEL='local.modular-machine.keyboard'
+STATE=state_directory()
 
 def main():
     parser=argparse.ArgumentParser(description=__doc__)
@@ -33,8 +33,9 @@ def main():
     runtime=Path(tempfile.mkdtemp(prefix='keyboard-runtime-',dir=STATE))
     try:
         (runtime/'bin').mkdir();(runtime/'scripts').mkdir();(runtime/'patches').mkdir()
-        for source,name in [(adapter,'g1keyboardadapter'),(controller,'modular-machine-keyboard')]:shutil.copy2(source,runtime/'bin'/name)
-        shutil.copy2(ROOT/'scripts/keyboard_service.py',runtime/'scripts/keyboard_service.py')
+        for source,name in [(adapter,'g1keyboardadapter'),(controller,'nord-modular-ni-interface')]:shutil.copy2(source,runtime/'bin'/name)
+        for script in ('keyboard_service.py', 'service_paths.py'):
+            shutil.copy2(ROOT/'scripts'/script, runtime/'scripts'/script)
         for name in ['MK3-Bridge.pch','MK3-MIDI.pch']:shutil.copy2(ROOT/'patches'/name,runtime/'patches'/name)
         notices=runtime/'LICENSES';notices.mkdir()
         for path, name in [
@@ -80,17 +81,17 @@ def main():
         print(f'Imported {count} local patch files into private Application Support data; originals unchanged.')
     elif source.is_dir():preferences['patch_dir']=str(source)
     preference_file.write_text(json.dumps(preferences,indent=2)+'\n')
-    agents=Path.home()/'Library/LaunchAgents';agents.mkdir(exist_ok=True);plist=agents/(LABEL+'.plist')
+    agents=Path.home()/'Library/LaunchAgents';agents.mkdir(exist_ok=True);label=service_label(agents);plist=agents/(label+'.plist')
     previous=plist.read_bytes() if plist.exists() else None
     previous_args=plistlib.loads(previous).get('ProgramArguments',[]) if previous else []
     profile=args.controller or next((profile for flag,profile in zip(previous_args,previous_args[1:]) if flag=='--controller' and profile in CONTROLLERS),'komplete')
-    config={'Label':LABEL,'ProgramArguments':['/usr/bin/python3','-B',str(runtime/'scripts/keyboard_service.py'),'--controller',profile],'RunAtLoad':True,'KeepAlive':True,'ThrottleInterval':10,'WorkingDirectory':str(runtime),'EnvironmentVariables':{'MODULAR_MACHINE_STATE_DIR':str(STATE)},'StandardErrorPath':str(STATE/'keyboard-launch-error.log')}
+    config={'Label':label,'ProgramArguments':['/usr/bin/python3','-B',str(runtime/'scripts/keyboard_service.py'),'--controller',profile],'RunAtLoad':True,'KeepAlive':True,'ThrottleInterval':10,'WorkingDirectory':str(runtime),'EnvironmentVariables':{STATE_DIR_ENV:str(STATE)},'StandardErrorPath':str(STATE/'keyboard-launch-error.log')}
     staged=plist.with_suffix('.plist.staged');staged.write_bytes(plistlib.dumps(config))
     subprocess.run(['plutil','-lint',str(staged)],check=True,stdout=subprocess.DEVNULL)
     domain=f'gui/{os.getuid()}'
-    subprocess.run(['launchctl','bootout',domain+'/'+LABEL],stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
+    subprocess.run(['launchctl','bootout',domain+'/'+label],stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
     deadline=time.monotonic()+10
-    while subprocess.run(['launchctl','print',domain+'/'+LABEL],capture_output=True).returncode==0 and time.monotonic()<deadline:time.sleep(.1)
+    while subprocess.run(['launchctl','print',domain+'/'+label],capture_output=True).returncode==0 and time.monotonic()<deadline:time.sleep(.1)
     def bootstrap():
         result=None
         for attempt in range(30):
@@ -107,5 +108,6 @@ def main():
         else:plist.unlink(missing_ok=True)
         raise
     print(f'Installed background bridge for {CONTROLLERS[profile]}. It waits for G1-Emu plugins.')
+    print(f'Service: {label}\nPreferences and logs: {STATE}')
 
 if __name__=='__main__':main()

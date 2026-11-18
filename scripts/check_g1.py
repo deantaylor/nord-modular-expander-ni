@@ -6,6 +6,7 @@ import json
 import math
 import os
 from pathlib import Path
+from service_paths import BRIDGE_SERVICE, LEGACY_BRIDGE_SERVICE
 import signal
 import socket
 import subprocess
@@ -19,7 +20,7 @@ class Rpc:
         self.socket=socket.create_connection(('127.0.0.1',port),timeout=2)
         self.socket.settimeout(2);self.file=self.socket.makefile('rwb');self.id=0
         hello=json.loads(self.file.readline(1024*1024))
-        assert hello['service']=='modular-machine-g1' and hello['protocol']==1,hello
+        assert hello['service'] in (BRIDGE_SERVICE, LEGACY_BRIDGE_SERVICE) and hello['protocol']==1,hello
     def call(self,method,**fields):
         self.id+=1;self.file.write((json.dumps(dict(id=self.id,method=method,**fields))+'\n').encode());self.file.flush()
         reply=json.loads(self.file.readline(1024*1024));assert reply['id']==self.id

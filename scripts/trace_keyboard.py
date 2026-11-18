@@ -3,11 +3,12 @@ import argparse
 from collections import Counter
 from datetime import datetime,timezone
 from pathlib import Path
+from service_paths import state_directory
 import re,time
 
 def main():
     parser=argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--dir',type=Path,default=Path.home()/'Library/Application Support/Modular Machine')
+    parser.add_argument('--dir',type=Path,default=state_directory())
     args=parser.parse_args();events=[];counts=Counter()
     for name in ('keyboard-controller.log','adapter-session.log'):
         path=args.dir/name

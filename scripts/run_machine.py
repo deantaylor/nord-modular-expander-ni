@@ -7,6 +7,7 @@ import logging
 from logging.handlers import RotatingFileHandler
 import os
 from pathlib import Path
+from service_paths import BRIDGE_SERVICE, LEGACY_BRIDGE_SERVICE, state_directory
 import signal
 import socket
 import subprocess
@@ -15,7 +16,7 @@ import tempfile
 import time
 
 ROOT = Path(__file__).resolve().parents[1]
-STATE = Path(os.environ.get('MODULAR_MACHINE_STATE_DIR', ROOT / 'g1-state'))
+STATE = state_directory(ROOT / 'g1-state')
 PREFERENCES = STATE / 'controller-preferences.json'
 
 
@@ -76,7 +77,7 @@ def launcher_lock(path):
 
 
 def hardware_lock_path():
-    return Path.home()/'Library/Application Support/Modular Machine/controller-launcher.lock'
+    return state_directory()/'controller-launcher.lock'
 
 @contextmanager
 def hardware_ownership(args):
@@ -155,7 +156,7 @@ def connect_bridge(port):
     try:
         bridge = Bridge(stream)
         hello = bridge.read()
-        if hello.get('service') != 'modular-machine-g1' or hello.get('protocol') != 1:
+        if hello.get('service') not in (BRIDGE_SERVICE, LEGACY_BRIDGE_SERVICE) or hello.get('protocol') != 1:
             raise LaunchError(f'Port {port} is in use by an incompatible service. Close that service or choose another --port.')
         bridge.hello = hello
         return bridge
@@ -219,7 +220,7 @@ def launch(args, preferences_path=PREFERENCES):
     plugin_mode=getattr(args,'plugin',False)
     if plugin_mode and args.port is None:
         plugins=find_plugins()
-        if not plugins:raise LaunchError('No available Modular Machine plugin found. Load the VST3/AU in your DAW and enable audio processing; quit any other controller connected to it.')
+        if not plugins:raise LaunchError('No available legacy G1-Emu plugin found. Load the VST3/AU in your DAW and enable audio processing; quit any other controller connected to it.')
         if len(plugins)>1:
             choices='; '.join(f"{p['port']}: {p['name']} (instance {p['instance']})" for p in plugins)
             raise LaunchError('Several plugins are open. Select one with --plugin --port PORT: '+choices)

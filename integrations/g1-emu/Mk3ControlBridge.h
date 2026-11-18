@@ -1,4 +1,4 @@
-// Modular Machine MK3 local controller bridge. GPL-3.0-or-later.
+// Local G1-Emu controller bridge. GPL-3.0-or-later.
 // Reuses G1-Emu's own panel/PresetsLink; never takes the editor's DirectLink socket.
 #pragma once
 #include "emuhost.h"
@@ -347,7 +347,7 @@ private:
 #if JUCE_MAC
                 int one=1;::setsockopt(client->getRawSocketHandle(),SOL_SOCKET,SO_NOSIGPIPE,&one,sizeof(one));
 #endif
-                auto hello=object();put(hello,"service","modular-machine-g1");put(hello,"protocol",1);put(hello,"instance",instance);hostInfo(hello);queue(hello);
+                auto hello=object();put(hello,"service","nord-modular-ni-interface-g1");put(hello,"protocol",1);put(hello,"instance",instance);hostInfo(hello);queue(hello);
             }
         }
         if(!client)return;

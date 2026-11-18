@@ -16,7 +16,7 @@ __pycache__/
 !/patches/MK3-AudioIn.pch
 !/patches/MK3-Bridge.pch
 !/patches/MK3-MIDI.pch
-/modular-machine-mk3.code-workspace
+/*.code-workspace
 
 # Archived pre-integration prototype retained locally.
 /docs/baseline/

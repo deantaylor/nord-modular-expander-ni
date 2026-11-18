@@ -1,4 +1,4 @@
-// Modular Machine's adapter for upstream G1-Emu plugin instances. GPL-3.0-or-later.
+// Local controller adapter for legacy G1-Emu plugin instances. GPL-3.0-or-later.
 // It never opens an audio device. DAW audio remains in Processor/Runner.
 #pragma once
 #include "Processor.h"

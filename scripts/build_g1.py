@@ -7,6 +7,8 @@ import shutil
 import subprocess
 
 ROOT = Path(__file__).resolve().parents[1]
+# Keep the legacy bundle names in sync with standalone.patch and existing DAW sessions.
+LEGACY_PLUGIN_NAME = 'Modular Machine G1'
 PINS = {
     'source': ('https://github.com/animatek/G1-Emu.git', 'efd178d8a6e13a38c74b5cce02853fc7dccbf5c1'),
     'gearmulator': ('https://github.com/joelanders/gearmulator-md-mm.git', 'ab69ad003f1268d1ef373fbb5a47340269b6dd47'),
@@ -67,7 +69,7 @@ def main():
     # Keep license/source provenance beside local build artifacts.
     shutil.copy2(source / 'LICENSE', output / 'G1-Emu-LICENSE')
     if args.plugins:
-        for target,name in [('g1plugin','Modular Machine G1'),('g1pluginfx','Modular Machine G1 FX')]:
+        for target,name in [('g1plugin', LEGACY_PLUGIN_NAME), ('g1pluginfx', LEGACY_PLUGIN_NAME+' FX')]:
             for fmt,extension in [('VST3','vst3'),('AU','component')]:
                 source_bundle=build/'app/plugin'/(target+'_artefacts/Release')/fmt/(name+'.'+extension)
                 destination=output/'plugins'/fmt/source_bundle.name

@@ -1,5 +1,6 @@
 """Exercise the unmodified release through an external DirectLink adapter; never store banks."""
 from pathlib import Path
+from service_paths import state_directory
 import argparse,fcntl,hashlib,json,os,socket,subprocess,time
 from fault_directlink import FaultLink
 ROOT=Path(__file__).resolve().parents[1]
@@ -51,7 +52,7 @@ def main():
     args=argparse.ArgumentParser(description=__doc__);args.add_argument('--playhead-only',action='store_true');args.add_argument('--sequencer-only',action='store_true');args.add_argument('--restore-only',action='store_true');args.add_argument('--readback-only',action='store_true');args.add_argument('--adapter',type=Path);args.add_argument('--lost-reply',action='store_true');args.add_argument('--mixed',action='store_true');args.add_argument('--module-edit',action='store_true');args.add_argument('--slot-selection-only',action='store_true');args.add_argument('--mixer-only',action='store_true');args.add_argument('--inactive-read-stall',action='store_true');args.add_argument('--patch-file',type=Path,default=ROOT/'patches/MK3-Bridge.pch');args=args.parse_args()
     # The watcher must never attach its keyboard to an isolated test plugin.
     # Refuse an active production owner rather than stopping it for a test.
-    lock_path=Path.home()/'Library/Application Support/Modular Machine/controller-launcher.lock'
+    lock_path=state_directory()/'controller-launcher.lock'
     lock_path.parent.mkdir(parents=True,exist_ok=True)
     test_lock=lock_path.open('a+')
     try:fcntl.flock(test_lock,fcntl.LOCK_EX|fcntl.LOCK_NB)
