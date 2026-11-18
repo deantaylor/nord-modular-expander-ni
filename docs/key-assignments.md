@@ -120,7 +120,7 @@ Browser closes after confirmed successful patch loading; failed loads and folder
 
 ## Maschine MK3 with the official VST
 
-Double-click **Modular Machine Plugin.command** to select Maschine MK3. The background bridge starts when the official G1-Emu VST is available. **Komplete Keyboard Plugin.command** switches the same service to S49 Mk2.
+Double-click **Maschine.command** to select Maschine MK3. The background bridge starts when the official G1-Emu VST is available. **KompleteKontrol.command** switches the same service to S49 Mk2.
 
 If another app has the Maschine panel, hold **SHIFT** and press **PLUG-IN** to open the instance selector. Turn the 4D encoder to **Encdr** and press it to select. **SHIFT + CHANNEL** is the hardware's MIDI mode shortcut. [Native Instruments Maschine MK3 quick reference](https://docs.native-instruments.com/ni-tech-manuals/maschine-mk3-manual/en/quick-reference.html)
 

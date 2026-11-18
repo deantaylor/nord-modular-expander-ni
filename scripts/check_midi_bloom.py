@@ -10,7 +10,7 @@ def main():
  folder=ROOT/'g1-state'/f'midi-bloom-{time.time_ns()}'
  def status():
   s=base();s['midiActivity']=copy.deepcopy(activity);return s
- f.status=status;check_mock.BINARY=ROOT/'target/release/modular-machine-mk3'
+ f.status=status;check_mock.BINARY=ROOT/'target/release/nord-modular-ni-interface'
  try:
   p=check_mock.Session(['--mock','--g1','--g1-address',f'127.0.0.1:{f.port}']);p.wait_for(lambda:p.state().get('engine')=='G1-EMU / LIVE')
   def inspect():

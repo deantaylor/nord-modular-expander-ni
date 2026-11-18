@@ -1,6 +1,6 @@
 # Repository instructions for coding agents
 
-Apply these instructions to the entire repository. They carry forward the operating rules in [CODEX_HANDOFF_Modular_Machine_MK3.md](CODEX_HANDOFF_Modular_Machine_MK3.md), updated for the user's subsequent scope and workflow decisions.
+Apply these instructions to the entire repository. They carry forward the operating rules in the [original handoff](docs/history/original-handoff.md), updated for the user's subsequent scope and workflow decisions.
 
 ## Sources of truth and starting work
 

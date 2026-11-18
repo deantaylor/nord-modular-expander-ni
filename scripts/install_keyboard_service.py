@@ -11,7 +11,7 @@ def main():
     parser.add_argument('--controller',choices=CONTROLLERS,help='Select a surface and remember it for updates')
     args=parser.parse_args()
     adapter=ROOT/'build/g1-official/adapter-build/g1keyboardadapter_artefacts/Release/g1keyboardadapter'
-    controller=ROOT/'target/release/modular-machine-mk3'
+    controller=ROOT/'target/release/nord-modular-ni-interface'
     if not adapter.is_file() or not controller.is_file():raise SystemExit('Build the keyboard controller and official-protocol adapter first')
     for binary in [adapter,controller]:subprocess.run(['codesign','--verify',str(binary)],check=True)
     STATE.mkdir(parents=True,exist_ok=True)
@@ -37,7 +37,16 @@ def main():
         shutil.copy2(ROOT/'scripts/keyboard_service.py',runtime/'scripts/keyboard_service.py')
         for name in ['MK3-Bridge.pch','MK3-MIDI.pch']:shutil.copy2(ROOT/'patches'/name,runtime/'patches'/name)
         notices=runtime/'LICENSES';notices.mkdir()
-        for path,name in [(ROOT/'vendor/encdr/LICENSE','Encdr-GPL.txt'),(ROOT/'vendor/encdr-view/LICENSE','EncdrView-GPL.txt'),(ROOT/'screens/fonts/OFL.txt','Inter-OFL.txt')]:shutil.copy2(path,notices/name)
+        for path, name in [
+            ('vendor/encdr/LICENSE', 'Encdr-GPL.txt'),
+            ('vendor/encdr/PATCHES.md', 'Encdr-Modifications.md'),
+            ('vendor/encdr-view/LICENSE', 'EncdrView-GPL.txt'),
+            ('vendor/encdr-view/PATCHES.md', 'EncdrView-Modifications.md'),
+            ('screens/fonts/OFL.txt', 'Inter-OFL.txt'),
+            ('screens/THIRD_PARTY_NOTICES.md', 'Module-Visuals-Attribution.md'),
+            ('screens/GPL-3.0.txt', 'GPL-3.0.txt'),
+        ]:
+            shutil.copy2(ROOT/path, notices/name)
         cache=ROOT/'build/g1-official/adapter-build/CMakeCache.txt'
         for line in cache.read_text().splitlines():
             if line.startswith(('NME_SOURCE:','JUCE_SOURCE:')):

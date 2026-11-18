@@ -17,7 +17,7 @@ The build script fetches pinned open-source dependencies into ignored `build/g1-
 
 Place your compatible local rack OS 3.03 ROM at `roms/NORD-MODULAR-RACK-VER-3.03.BIN`, or pass `--rom /absolute/path` below. Firmware, bank files, recordings and local builds are ignored by Git.
 
-For normal use, double-click **Modular Machine.command** at the project root. It opens a terminal and runs the combined launcher. Or run:
+To run the historical standalone integration from this checkout, use the combined launcher:
 
 ```sh
 python3 scripts/run_machine.py
@@ -156,4 +156,4 @@ Responsiveness follow-up: hardware input dispatch now runs independently of the 
 
 Upstream's existing plugin targets are now available with the same controller bridge: **Modular Machine G1** instrument and **Modular Machine G1 FX**, Apple Silicon VST3/AU. Build with `python3 scripts/build_g1.py --plugins` using the directory flags above. The expanded historical `standalone.patch` covers both runtime integrations. Plugin audio comes from upstream Processor/Runner and the DAW; the adapter does not link/run a standalone EmuHost. Safe engine access is reported as `engineAccess=runner-lock`. Each instance has its own control port47420–47483 and generation-bound parameter identity.
 
-Run `Modular Machine Plugin.command` or `python3 scripts/run_machine.py --plugin --port PORT --no-build`; it never opens a standalone. A single available instance is selected automatically; multiple instances require an explicit port, shown in the plugin's native Settings. Controller preferences are separate from standalone launch preferences. See [plugin guide](../../docs/plugin-guide.md) for install paths, ROM setup, DAW state, MIDI routing and exact validation evidence.
+Run `python3 scripts/run_machine.py --plugin --port PORT --no-build` to attach to a historical locally built plugin. A single available instance is selected automatically. For multiple instances, specify the port shown in the plugin's native Settings. Controller preferences are separate from standalone launch preferences. See the [plugin guide](../../docs/plugin-guide.md) for the current official VST workflow.

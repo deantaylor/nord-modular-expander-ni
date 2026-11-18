@@ -23,7 +23,7 @@ def main():
     app = output / ('Modular Machine ' + manifest['version'] + '.app')
     project = app / 'Contents/Resources/project'
     subprocess.run(['codesign', '--verify', '--deep', '--strict', str(app)], check=True)
-    assert sha256(project / 'target/debug/modular-machine-mk3') == manifest['controllerSha256']
+    assert sha256(project / 'target/debug/nord-modular-ni-interface') == manifest['controllerSha256']
     assert sha256(project / 'build/g1-emu/G1-Emu.app/Contents/MacOS/G1-Emu') == manifest['nativeSha256']
     assert not manifest['proprietaryNordRomIncluded'] and not manifest['userBanksIncluded'] and not manifest['userPatchLibraryIncluded']
     assert sorted(p.name for p in (project / 'patches').iterdir()) == ['MK3-AudioIn.pch', 'MK3-Bridge.pch', 'MK3-MIDI.pch']

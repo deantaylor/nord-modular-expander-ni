@@ -1,10 +1,14 @@
+# Repository naming and distribution notes — 18 November 2026
+
+The root launchers are `Maschine.command` and `KompleteKontrol.command`. Both install or select the official VST bridge profile. The Cargo executable is `nord-modular-ni-interface`. The installed LaunchAgent label, Application Support folder, and historical plugin identities retain their existing names to preserve existing installations and DAW projects. See [licensing and third-party sources](licensing.md) for recorded terms and remaining release questions.
+
 # Maschine MK3 on the official bridge — 18 November 2026
 
 Maschine lamps use the pinned Encdr NHL2 Dim/Bright encoding for monochrome buttons (228/158) and distinct indexed intensities for group lamps. Available buttons are dim, active or held buttons are bright and unavailable buttons are off. MACRO has no hardware action and its lamp is cleared. Focused lamp-state, descriptor encoding and Maschine input tests passed. Installed bridge reached G1-EMU / LIVE on 47310 with ACTIVE USB ownership. Physical lamp brightness was not visually checked.
 
 Maschine follow-up: the dedicated arrows change knob pages, and holding the physical SHIFT button changes them to previous/next preset. The arrow lamps follow the available actions. ARRANGER takes over the Sequencers action and lamp; the Maschine PATTERN button is unassigned. S49 keeps its existing mappings. Release build and three focused Maschine tests passed. The updated service reconnected to DirectLink 47310 with ACTIVE control of the physical Maschine. Its log shows physical ARRANGER input and the sequencer view rendering on both screens. Arrow behavior was verified in the focused test.
 
-The user added Maschine MK3 (`17cc:1600`) alongside S49 Mk2 (`17cc:1610`). The existing LaunchAgent and its single DirectLink client run one selected profile. The installer stores the selection in its launch arguments and retains it on updates. Modular Machine launchers select Maschine; Komplete Keyboard launchers select S49. The old custom VST and standalone builds are historical.
+The user added Maschine MK3 (`17cc:1600`) alongside S49 Mk2 (`17cc:1610`). The existing LaunchAgent and its single DirectLink client run one selected profile. The installer stores the selection in its launch arguments and retains it on updates. The old custom VST and standalone builds are historical.
 
 Maschine reuses the pinned Encdr descriptor. CHANNEL opens Home, PLUG-IN opens Module Edit, ERASE restores changed slot parameters and the 4D encoder press uses the shared browser/sequence action. GROUP A–D still select slots. SHIFT + PLUG-IN and SHIFT + CHANNEL retain the native instance/MIDI shortcuts. The official adapter does not offer direct pad-note input or Nord master control. See [Maschine controls](key-assignments.md#maschine-mk3-with-the-official-vst).
 

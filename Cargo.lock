@@ -1590,7 +1590,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "modular-machine-mk3"
+name = "nord-modular-ni-interface"
 version = "0.1.0"
 dependencies = [
  "base64",

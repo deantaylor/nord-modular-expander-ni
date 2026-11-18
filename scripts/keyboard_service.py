@@ -67,7 +67,7 @@ def preferred_port():
 def paths():
     adapter=ROOT/'bin/g1keyboardadapter';controller=ROOT/'bin/modular-machine-keyboard'
     if not adapter.exists():adapter=ROOT/'build/g1-official/adapter-build/g1keyboardadapter_artefacts/Release/g1keyboardadapter'
-    if not controller.exists():controller=ROOT/'target/release/modular-machine-mk3'
+    if not controller.exists():controller=ROOT/'target/release/nord-modular-ni-interface'
     return adapter,controller
 
 def child_log(name):

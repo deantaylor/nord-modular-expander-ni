@@ -7,7 +7,7 @@ import signal
 import subprocess
 import time
 
-BINARY = Path(__file__).resolve().parents[1] / "target/debug/modular-machine-mk3"
+BINARY = Path(__file__).resolve().parents[1] / "target/debug/nord-modular-ni-interface"
 
 
 class Session:

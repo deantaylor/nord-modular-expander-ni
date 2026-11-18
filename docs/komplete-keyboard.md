@@ -109,7 +109,7 @@ Development now targets the connected **S49 Mk2 (`17cc:1610`)**. Use the officia
 3. Keep NI agents running. If the keyboard is showing another app, press **INSTANCE** and select **Nord Modular**. Automatic bridge startup and NI hardware focus are separate: the bridge does not kill other software or repeatedly steal focus.
 4. Use Browser to load a `.pch` file if the official plugin has an empty patch. A knob needs an assignment in the patch to control a parameter.
 
-The background service is installed once with **Komplete Keyboard Plugin.command**, or:
+The background service is installed once with **KompleteKontrol.command**, or:
 
 ```sh
 python3 scripts/install_keyboard_service.py
@@ -199,7 +199,7 @@ Module browsing remains on the left. The curves are base-parameter schematics; t
 
 ## Multiple instances and ownership
 
-The service owns one selected surface. Use **Komplete Keyboard Plugin.command** to select the S49 Mk2. See [Maschine controls](key-assignments.md#maschine-mk3-with-the-official-vst) for the other profile. By default it attaches to the first available plugin on the official DirectLink range `47310–47317`, and retains that instance until it closes. A standalone greeting is ignored. It does not infer the selected DAW track.
+The service owns one selected surface. Use **KompleteKontrol.command** to select the S49 Mk2. See [Maschine controls](key-assignments.md#maschine-mk3-with-the-official-vst) for the other profile. By default it attaches to the first available plugin on the official DirectLink range `47310–47317`, and retains that instance until it closes. A standalone greeting is ignored. It does not infer the selected DAW track.
 
 To select a specific instance, set `direct_port` in `~/Library/Application Support/Modular Machine/keyboard-preferences.json`; preserve your `patch_dir` entry. Remove `direct_port` for automatic selection. Changing the selected port cleans up only the service's own adapter/controller before reconnecting.
 

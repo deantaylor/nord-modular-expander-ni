@@ -263,7 +263,7 @@ def main():
             print('PASS official module catalogue, ten actual OscA parameters, unassigned-parameter write/readback, range/stale-module guards, module navigation, unchanged assignments',flush=True)
             peer.close();peer=None
             import check_mock
-            check_mock.BINARY=ROOT/'target/release/modular-machine-mk3'
+            check_mock.BINARY=ROOT/'target/release/nord-modular-ni-interface'
             panel=check_mock.Session(['--mock','--g1','--g1-address',f'127.0.0.1:{json_port}','--patch-dir',str(ROOT/'patches')])
             panel.wait_for(lambda:panel.state().get('engine')=='G1-EMU / LIVE',20)
             panel.command('button module_edit');panel.wait_for(lambda:panel.state().get('moduleReady') and panel.state().get('moduleEdit'),15)

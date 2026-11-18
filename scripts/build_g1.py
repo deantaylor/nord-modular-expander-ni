@@ -81,7 +81,7 @@ def main():
         run(build/'app/plugin/g1hostgesturestest')
 
     (output / 'SOURCES.txt').write_text('\n'.join(f'{name} {url} {revision}' for name, (url, revision) in PINS.items()) +
-        '\nLocal modifications: integrations/g1-emu in modular-machine-mk3. Full source checkouts: ' + str(source.parent) + '\n')
+        '\nLocal modifications: integrations/g1-emu in nord-modular-ni-interface. Full source checkouts: ' + str(source.parent) + '\n')
     print(f'Built {output / "G1-Emu.app"}; next: python3 scripts/run_g1.py --demo')
 
 if __name__ == '__main__':

@@ -64,7 +64,7 @@ def launcher_lock(path):
         try:
             fcntl.flock(file, fcntl.LOCK_EX | fcntl.LOCK_NB)
         except BlockingIOError as error:
-            raise LaunchError('Modular Machine is already running through the launcher. Use that terminal/window, or quit its controller first.') from error
+            raise LaunchError('The controller is already running through the launcher. Use that terminal/window, or quit its controller first.') from error
         try:
             file.seek(0)
             file.truncate()
@@ -133,15 +133,15 @@ class Bridge:
         if value['running'] and not isinstance(value.get('configuration'), dict):
             raise LaunchError('The running G1-Emu bridge is outdated for Settings/Mixer/Function. Close G1-Emu normally and launch the updated local app.')
         if value.get('encoderInput') != 'editor-parameters':
-            raise LaunchError('Save your current patch, close G1-Emu normally, then reopen Modular Machine.command. The updated encoder path requires the new native bridge; the running synth has been left untouched.')
+            raise LaunchError('Save your current patch, close G1-Emu normally, then rerun the standalone launcher. The updated encoder path requires the new native bridge; the running synth has been left untouched.')
         if value.get('engineThreadRequests') is not True and not (value.get('hostType') == 'plugin' and value.get('engineAccess') == 'runner-lock'):
-            raise LaunchError('Save your patch and close G1-Emu normally, then reopen Modular Machine.command to load the stability update. The running synth was left untouched.')
+            raise LaunchError('Save your patch and close G1-Emu normally, then rerun the standalone launcher to load the stability update. The running synth was left untouched.')
         if not isinstance(value.get('bankLoad'),dict):
-            raise LaunchError('The native bridge needs the confirmed bank-load update. Save your patch, close G1-Emu normally and reopen Modular Machine.command.')
+            raise LaunchError('The native bridge needs the confirmed bank-load update. Save your patch, close G1-Emu normally and rerun the standalone launcher.')
         if value.get("padMidi") is not True:
-            raise LaunchError("Save your patch, close G1-Emu normally and reopen Modular Machine.command to enable the updated MIDI pads bridge. The running synth was left untouched.")
+            raise LaunchError("Save your patch, close G1-Emu normally and rerun the standalone launcher to enable the updated MIDI pads bridge. The running synth was left untouched.")
         if value.get("transportThread") != "dedicated":
-            raise LaunchError("Save your patch, close G1-Emu normally and reopen Modular Machine.command to load the dedicated control transport. The running synth was left untouched.")
+            raise LaunchError("Save your patch, close G1-Emu normally and rerun the standalone launcher to load the dedicated control transport. The running synth was left untouched.")
         return value
 
 
@@ -237,7 +237,7 @@ def launch(args, preferences_path=PREFERENCES):
         if not args.no_build:
             print('Preparing controller…', flush=True)
             subprocess.run(['cargo', 'build', '--locked'], cwd=ROOT, check=True)
-        controller = ROOT / 'target/debug/modular-machine-mk3'
+        controller = ROOT / 'target/debug/nord-modular-ni-interface'
         if not controller.is_file():
             raise LaunchError('Controller is not built. Run cargo build --locked, then launch again.')
         bridge = connect_bridge(port)
@@ -330,7 +330,7 @@ def main():
         print('\nLaunch cancelled. Any opened G1-Emu window remains available.', flush=True)
         return 130
     except (LaunchError, OSError, subprocess.CalledProcessError) as error:
-        print(f'Cannot start Modular Machine: {error}', file=sys.stderr, flush=True)
+        print(f'Cannot start Nord Modular NI Interface: {error}', file=sys.stderr, flush=True)
         return 1
 
 

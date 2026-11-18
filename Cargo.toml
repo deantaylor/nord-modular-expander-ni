@@ -1,5 +1,5 @@
 [package]
-name = "modular-machine-mk3"
+name = "nord-modular-ni-interface"
 version = "0.1.0"
 edition = "2021"
 description = "Maschine MK3 and S49 Mk2 control surfaces for the official G1-Emu VST on macOS"

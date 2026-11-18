@@ -41,13 +41,15 @@ def source_archive(path):
             file_hashes={}
             for current,dirs,files in os.walk(directory,followlinks=False):
                 dirs[:]=sorted(d for d in dirs if d not in skip_dirs and not Path(current,d).is_symlink())
+                if project and Path(current)==directory/'docs' and 'baseline' in dirs:
+                    dirs.remove('baseline')
                 for name in sorted(files):
                     file=Path(current,name);relative=file.relative_to(directory)
                     if registry and name in {'.cargo-checksum.json','.cargo-ok'}:continue
                     if file.is_symlink() or name=='.DS_Store' or name.endswith(('.pyc','.log')):continue
                     if project:
                         allowed={'src','screens','scripts','docs','integrations','vendor','patches','.cargo'}
-                        top_files={'Cargo.toml','Cargo.lock','README.md','TODO.md','CHANGELOG.md','AGENTS.md','CODEX_HANDOFF_Modular_Machine_MK3.md','.gitignore','Modular Machine.command','Modular Machine Plugin.command','Komplete Keyboard.command','Komplete Keyboard Plugin.command'}
+                        top_files={'Cargo.toml','Cargo.lock','README.md','TODO.md','CHANGELOG.md','AGENTS.md','.gitignore','Maschine.command','KompleteKontrol.command'}
                         if len(relative.parts)==1 and name not in top_files:continue
                         if len(relative.parts)>1 and relative.parts[0] not in allowed:continue
                         if relative.parts[0]=='patches' and relative.as_posix() not in {'patches/MK3-Bridge.pch','patches/MK3-MIDI.pch','patches/MK3-AudioIn.pch'}:continue
@@ -89,12 +91,12 @@ def main():
     if app.exists():shutil.rmtree(app)
     contents=app/'Contents';project=contents/'Resources/project';(contents/'MacOS').mkdir(parents=True);project.mkdir(parents=True)
     for dirname in ['scripts','integrations','docs']:
-        shutil.copytree(ROOT/dirname,project/dirname,ignore=shutil.ignore_patterns('__pycache__','*.pyc'))
+        shutil.copytree(ROOT/dirname,project/dirname,ignore=shutil.ignore_patterns('__pycache__','*.pyc','baseline'))
     for filename in ['README.md','Cargo.toml','Cargo.lock','CHANGELOG.md','AGENTS.md']:
         shutil.copy2(ROOT/filename,project/filename)
     (project/'patches').mkdir()
     for name in ['MK3-Bridge.pch','MK3-MIDI.pch','MK3-AudioIn.pch']:shutil.copy2(ROOT/'patches'/name,project/'patches'/name)
-    (project/'target/debug').mkdir(parents=True);shutil.copy2(ROOT/'target/release/modular-machine-mk3',project/'target/debug/modular-machine-mk3')
+    (project/'target/debug').mkdir(parents=True);shutil.copy2(ROOT/'target/release/nord-modular-ni-interface',project/'target/debug/nord-modular-ni-interface')
     (project/'build/g1-emu').mkdir(parents=True)
     for name in ['G1-Emu.app','g1mk3check','G1-Emu-LICENSE','SOURCES.txt']:
         source=ROOT/'build/g1-emu'/name
@@ -111,7 +113,9 @@ def main():
     with (contents/'Info.plist').open('wb') as file:plistlib.dump({'CFBundleName':'Modular Machine','CFBundleDisplayName':'Modular Machine','CFBundleIdentifier':'local.modular-machine.mk3','CFBundleExecutable':'Modular Machine','CFBundlePackageType':'APPL','CFBundleShortVersionString':version,'CFBundleVersion':__import__('datetime').datetime.now().strftime('%Y%m%d'),'NSHighResolutionCapable':True},file)
     licenses=contents/'Resources/Licenses';licenses.mkdir()
     for source,name in [(ROOT/'vendor/encdr/LICENSE','Encdr-GPL.txt'),(ROOT/'vendor/encdr-view/LICENSE','EncdrView-GPL.txt'),(ROOT/'screens/fonts/OFL.txt','Inter-OFL.txt'),(ROOT/'build/g1-emu/G1-Emu-LICENSE','G1-Emu-GPL.txt')]:shutil.copy2(source,licenses/name)
-    for component in [project/'target/debug/modular-machine-mk3',project/'build/g1-emu/g1mk3check',project/'build/g1-emu/G1-Emu.app']:
+    shutil.copy2(ROOT/'screens/THIRD_PARTY_NOTICES.md',licenses/'Module-Visuals-Attribution.md')
+    shutil.copy2(ROOT/'screens/GPL-3.0.txt',licenses/'GPL-3.0.txt')
+    for component in [project/'target/debug/nord-modular-ni-interface',project/'build/g1-emu/g1mk3check',project/'build/g1-emu/G1-Emu.app']:
         subprocess.run(['/usr/bin/codesign','--force','--deep','--sign','-',str(component)],check=True,capture_output=True)
     metadata=json.loads(subprocess.check_output(['cargo','metadata','--locked','--offline','--format-version','1'],cwd=ROOT))
     components=[]
@@ -125,7 +129,7 @@ def main():
     for name,source in UPSTREAM.items():
         for notice in source.iterdir():
             if notice.is_file() and notice.name.lower().startswith(('license','licence','copying','notice')):shutil.copy2(notice,licenses/(name+'-'+notice.name))
-    manifest={'version':version,'platform':'macos-arm64','controllerSha256':digest(project/'target/debug/modular-machine-mk3'),'nativeSha256':digest(project/'build/g1-emu/G1-Emu.app/Contents/MacOS/G1-Emu'),'nativeSources':(ROOT/'build/g1-emu/SOURCES.txt').read_text(),'proprietaryNordRomIncluded':False,'userBanksIncluded':False,'userPatchLibraryIncluded':False,'controllerProfile':'release'}
+    manifest={'version':version,'platform':'macos-arm64','controllerSha256':digest(project/'target/debug/nord-modular-ni-interface'),'nativeSha256':digest(project/'build/g1-emu/G1-Emu.app/Contents/MacOS/G1-Emu'),'nativeSources':(ROOT/'build/g1-emu/SOURCES.txt').read_text(),'proprietaryNordRomIncluded':False,'userBanksIncluded':False,'userPatchLibraryIncluded':False,'controllerProfile':'release'}
     plugins=ROOT/'build/g1-emu/plugins'
     if plugins.is_dir():
         destination=output/'Plugins'

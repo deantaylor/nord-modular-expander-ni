@@ -8,7 +8,7 @@ ROOT=Path(__file__).resolve().parents[1]
 def main():
     f=Fixture();panel=None;folder=ROOT/'g1-state'/f'mixer-ui-{time.time_ns()}';folder.mkdir(parents=True)
     f.extra_controls=[dict(key=f'slotLevel:{i}:fixture:1:1:3',label=label,value=100 if i<2 else 0,min=0,max=127 if i<2 else 0,display='100' if i<2 else '—') for i,label in enumerate(['Slot A · AnalogBass','Slot B · Drums','Slot C · No Output module','Slot D · Multiple Outputs'])]
-    check_mock.BINARY=ROOT/'target/release/modular-machine-mk3'
+    check_mock.BINARY=ROOT/'target/release/nord-modular-ni-interface'
     try:
         panel=check_mock.Session(['--mock','--g1','--g1-address',f'127.0.0.1:{f.port}']);panel.wait_for(lambda:panel.state().get('engine')=='G1-EMU / LIVE')
         def inspect():

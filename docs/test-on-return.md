@@ -2,7 +2,7 @@
 
 # Test on return
 
-Save any unsaved work in G1-Emu, close it normally, then launch the updated project through `Modular Machine.command` or the local app in `build/package`. A native bridge update needs a normal emulator restart; the launcher will explain if an older build is still running. Keep NI agents running.
+For the historical standalone checks below, save any unsaved work in G1-Emu, close it normally, then run `python3 scripts/run_machine.py --controller maschine` or launch the legacy app in `build/package`. A native bridge update needs a normal emulator restart. Keep NI agents running.
 
 1. Confirm the first physical screen has slot/patch/browser, the second Nord Modular, and encoders still match the controls directly above them.
 2. Turn assigned knobs slowly and quickly in both directions. Check final values, bold activity and perceived response. Macro cycles three pages; inactive controls stay dim.

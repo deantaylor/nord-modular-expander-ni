@@ -20,7 +20,7 @@ def main():
     folder.mkdir(parents=True)
     path = folder/'controller.log'
     with path.open('w') as log:
-        process = subprocess.Popen([str(ROOT/'target/debug/modular-machine-mk3'),'--g1-address', args.address], cwd=ROOT,
+        process = subprocess.Popen([str(ROOT/'target/debug/nord-modular-ni-interface'),'--g1-address', args.address], cwd=ROOT,
                                    stdin=subprocess.PIPE, stdout=log, stderr=subprocess.STDOUT,
                                    env={**os.environ,'MK3_SCREEN_TIMING':'1','RUST_LOG':'info,encdr::usb::device_thread=debug'})
         def wait(predicate, timeout=20):

@@ -64,7 +64,7 @@ class Fixture:
 
 def main():
     folder=ROOT/'g1-state'/f'module-visuals-{time.time_ns()}';folder.mkdir(parents=True)
-    check_mock.BINARY=ROOT/'target/release/modular-machine-mk3';fixture=Fixture();panel=None
+    check_mock.BINARY=ROOT/'target/release/nord-modular-ni-interface';fixture=Fixture();panel=None
     try:
         panel=check_mock.Session(['--mock','--g1','--g1-address',f'127.0.0.1:{fixture.port}'])
         panel.wait_for(lambda:panel.state().get('engine')=='G1-EMU / LIVE');panel.command('button module_edit');panel.wait_for(lambda:panel.state().get('moduleReady'))

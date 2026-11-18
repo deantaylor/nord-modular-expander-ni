@@ -8,7 +8,7 @@ def main():
  f=Fixture();p=None
  f.modules=[('EventSeq',[parameter(i,15 if i==0 else 0,127 if i==0 else 1) for i in range(36)])]
  try:
-  check_mock.BINARY=ROOT/'target/release/modular-machine-mk3'
+  check_mock.BINARY=ROOT/'target/release/nord-modular-ni-interface'
   p=check_mock.Session(['--mock','--g1','--g1-address',f'127.0.0.1:{f.port}'])
   p.wait_for(lambda:p.state().get('leds',{}).get('pattern')==30)
   p.command('button pattern');p.wait_for(lambda:p.state().get('sequence',{}).get('ready'))

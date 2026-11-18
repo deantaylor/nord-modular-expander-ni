@@ -20,7 +20,7 @@ class LauncherTests(unittest.TestCase):
             library.mkdir()
             rom = root / 'local.rom'
             rom.write_bytes(b'local test path only')
-            for filename in ('target/debug/modular-machine-mk3', 'build/g1-emu/G1-Emu.app/Contents/MacOS/G1-Emu'):
+            for filename in ('target/debug/nord-modular-ni-interface', 'build/g1-emu/G1-Emu.app/Contents/MacOS/G1-Emu'):
                 path = root / filename
                 path.parent.mkdir(parents=True, exist_ok=True)
                 path.touch()
@@ -49,7 +49,7 @@ class LauncherTests(unittest.TestCase):
     def test_missing_rom_does_not_start_an_engine_or_write_preferences(self):
         with tempfile.TemporaryDirectory() as folder:
             root = Path(folder)
-            binary = root/'target/debug/modular-machine-mk3'
+            binary = root/'target/debug/nord-modular-ni-interface'
             binary.parent.mkdir(parents=True)
             binary.touch()
             args = SimpleNamespace(port=47412, patch_dir=root, rom=root/'missing.rom', flash=root/'banks.bin',

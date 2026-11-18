@@ -1,3 +1,8 @@
+## 18 November 2026 — Repository cleanup
+
+- Reduce the root launchers to `Maschine.command` and `KompleteKontrol.command` and align the Cargo executable with the repository name.
+- Add renderer screenshots, a hardware feature overview, and a component licensing and source guide. Include module diagram attribution in local binary artifacts.
+
 ## 18 November 2026 — Maschine MK3
 
 - Add Maschine MK3 as a selectable surface for the official G1-Emu VST background service alongside the S49 Mk2.

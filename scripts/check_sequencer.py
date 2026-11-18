@@ -15,7 +15,7 @@ def main():
  def note(kind,value):return (kind,[parameter(i,value if i<16 else 15 if i==16 else 0,127 if i<=16 else 16 if i==17 else 1) for i in range(21)])
  f.modules=[('OscA',[parameter(0)]),note('NoteSeqA',64),note('NoteSeqB',60),('CtrlSeq',[parameter(i,64 if i<16 else 15 if i==16 else 0,127 if i<=16 else 1) for i in range(19)]),('EventSeq',[parameter(i,15 if i==0 else 0,127 if i==0 else 1) for i in range(36)])]
  try:
-  check_mock.BINARY=ROOT/'target/release/modular-machine-mk3';p=check_mock.Session(['--mock','--g1','--g1-address',f'127.0.0.1:{f.port}']);p.wait_for(lambda:p.state().get('engine')=='G1-EMU / LIVE' and p.state().get('leds',{}).get('pattern')==30)
+  check_mock.BINARY=ROOT/'target/release/nord-modular-ni-interface';p=check_mock.Session(['--mock','--g1','--g1-address',f'127.0.0.1:{f.port}']);p.wait_for(lambda:p.state().get('engine')=='G1-EMU / LIVE' and p.state().get('leds',{}).get('pattern')==30)
   def inspect():
    count=sum(l.startswith('mock DOM') for l in p.lines);p.command('inspect');p.wait_for(lambda:sum(l.startswith('mock DOM') for l in p.lines)>=count+2)
    return {side:json.loads(next(l.split(': ',1)[1] for l in reversed(p.lines) if l.startswith('mock DOM '+side+':'))) for side in ['left','right']}
