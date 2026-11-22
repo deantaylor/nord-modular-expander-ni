@@ -50,3 +50,7 @@ The launcher prints the data folder and service label. New installations use `~/
 - **Check the service.** Read `keyboard-status.json`, `keyboard-service.log`, `keyboard-controller.log` and `adapter-session.log` in the service data folder. For launch failures, check `keyboard-launch-error.log`. For screen lag, set `"trace_pipeline": true`, restart the bridge with its launcher, then run `python3 scripts/trace_keyboard.py` to summarize the ten-minute trace. Remove the setting when finished. The trace ends at host transfer and cannot time physical LCD scanout.
 
 To stop the bridge for the current login session, run `launchctl bootout "gui/$(id -u)/local.nord-modular-ni-interface.keyboard"`. If your launcher prints a different label, use that label after the final slash. G1-Emu and NI services keep running. Run the launcher to start the bridge again.
+
+## License
+
+The original project code and bundled development patch fixtures are licensed under the [GNU General Public License, version 3 only](LICENSE). Encdr, Encdr View, and other third-party components retain their own terms and notices. See [licensing and third-party sources](docs/licensing.md) for details.

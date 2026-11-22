@@ -56,7 +56,7 @@ def source_archive(path):
                     if file.is_symlink() or name=='.DS_Store' or name.endswith(('.pyc','.log')):continue
                     if project:
                         allowed={'src','screens','scripts','docs','integrations','vendor','patches','.cargo'}
-                        top_files={'Cargo.toml','Cargo.lock','README.md','TODO.md','AGENTS.md','.gitignore','Maschine.command','KompleteKontrol.command'}
+                        top_files={'Cargo.toml','Cargo.lock','LICENSE','README.md','TODO.md','AGENTS.md','.gitignore','Maschine.command','KompleteKontrol.command'}
                         if len(relative.parts)==1 and name not in top_files:continue
                         if len(relative.parts)>1 and relative.parts[0] not in allowed:continue
                         if relative.parts[0]=='patches' and relative.as_posix() not in {'patches/MK3-Bridge.pch','patches/MK3-MIDI.pch','patches/MK3-AudioIn.pch'}:continue

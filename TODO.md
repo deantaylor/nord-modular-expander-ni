@@ -8,7 +8,7 @@
 ## Integration and release
 
 - **Official DirectLink.** Concurrent editor use, external assignment changes and morph controls remain unverified. Revisit editor arbitration or instance switching when there is a concrete need and upstream support.
-- **Public release.** Document terms for original code, fixtures and the Eastlab artwork before public distribution. See [licensing](docs/licensing.md).
+- **Public release.** Document redistribution terms for the Eastlab artwork. See [licensing](docs/licensing.md).
 
 ## Deferred standalone feature
 

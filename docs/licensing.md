@@ -1,6 +1,6 @@
 # Licensing and third-party sources
 
-This private source repository documents the existing terms for each component. There is no documented repository-wide license for the original project code or the three development patch fixtures.
+The original Nord Modular Expander for Ni Controllers code and the three development patch fixtures are licensed under the [GNU General Public License, version 3 only](../LICENSE). Third-party components retain the licenses and notices listed below.
 
 ## Included in the repository
 
@@ -21,4 +21,4 @@ This private source repository documents the existing terms for each component. 
 | JUCE | The adapter builds against JUCE modules offered under AGPL v3 or the commercial JUCE license. [Pinned source `29396c2`](https://github.com/juce-framework/JUCE/tree/29396c22c93392d6738e021b83196283d6e4d850) · [License terms](https://github.com/juce-framework/JUCE/blob/29396c22c93392d6738e021b83196283d6e4d850/LICENSE.md) |
 | Rust dependencies | Registry dependencies are pinned in [Cargo.lock](../Cargo.lock) and retain their own terms. Run `cargo metadata --locked --format-version 1` for package license metadata, then consult the corresponding source notices. |
 
-Keep licenses, attribution, local modification notices, and complete corresponding source with any distributions that require them. Resolve the original project and Eastlab artwork terms before making a public source or binary release. The ROM, firmware, NI drivers, and user patch libraries are supplied separately.
+Keep licenses, attribution, local modification notices, and complete corresponding source with any distributions that require them. The Eastlab artwork still needs documented redistribution terms. The ROM, firmware, NI drivers, and user patch libraries are supplied separately.
