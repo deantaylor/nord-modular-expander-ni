@@ -12,7 +12,7 @@ import subprocess
 import tarfile
 
 ROOT=Path(__file__).resolve().parents[1]
-APP_NAME = 'Nord Modular NI Interface'
+APP_NAME = 'Nord Modular Expander for Ni Controllers'
 SOURCE_ROOT = 'nord-modular-ni-interface-source'
 SOURCE_CHECKOUTS = ROOT / 'build/g1-work'
 UPSTREAM = {

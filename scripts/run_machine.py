@@ -331,7 +331,7 @@ def main():
         print('\nLaunch cancelled. Any opened G1-Emu window remains available.', flush=True)
         return 130
     except (LaunchError, OSError, subprocess.CalledProcessError) as error:
-        print(f'Cannot start Nord Modular NI Interface: {error}', file=sys.stderr, flush=True)
+        print(f'Cannot start Nord Modular Expander for Ni Controllers: {error}', file=sys.stderr, flush=True)
         return 1
 
 

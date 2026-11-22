@@ -1,4 +1,4 @@
-# A brutalist interface for G1-Emu and Native Instruments controllers
+# Nord Modular Expander for Ni Controllers
 
 **Work in progress.** The core controller and bridge functionality is in place. The screen design, layout and visual feedback will be refined in future updates.
 

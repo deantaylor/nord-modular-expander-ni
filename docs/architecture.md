@@ -1,6 +1,6 @@
 # Architecture and development
 
-Nord Modular NI Interface connects one Komplete Kontrol S49 Mk2 (`17cc:1610`) or Maschine MK3 (`17cc:1600`) to the official G1-Emu VST on Apple Silicon macOS. The plugin owns synthesis, audio, patch data and DAW state. Existing G1 tools handle full patch editing. Performance MIDI follows the DAW's routing. G2, Linux and Raspberry Pi are outside the current scope.
+Nord Modular Expander for Ni Controllers connects one Komplete Kontrol S49 Mk2 (`17cc:1610`) or Maschine MK3 (`17cc:1600`) to the official G1-Emu VST on Apple Silicon macOS. The plugin owns synthesis, audio, patch data and DAW state. Existing G1 tools handle full patch editing. Performance MIDI follows the DAW's routing. G2, Linux and Raspberry Pi are outside the current scope.
 
 ## Process boundaries
 

@@ -32,7 +32,7 @@ static STOP: AtomicBool = AtomicBool::new(false);
 extern "C" fn stop(_: libc::c_int) {
     STOP.store(true, Ordering::Relaxed);
 }
-const HELP: &str = "Nord Modular NI Interface — G1-Emu controller and developer fixtures (Encdr 0.8.5)
+const HELP: &str = "Nord Modular Expander for Ni Controllers — G1-Emu controller and developer fixtures (Encdr 0.8.5)
 Usage: cargo run -- [--mock | --diagnose] [--visible] [--led-test] [--hardware-test] [--state-file FILE | --no-persist] [--g1]
   --mock       Desktop front panel without MK3; --g1 can still control the real emulator
   --diagnose   Report USB enumeration, NI processes, and MK3 connection status
