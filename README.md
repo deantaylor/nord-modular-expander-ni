@@ -27,6 +27,8 @@ G1-Emu runs the synth and audio in your DAW. Performance MIDI keeps its usual DA
 
 ## Controller displays
 
+The bridge keeps the Maschine MK3 and Komplete Kontrol S49 Mk2 displays in sync with G1-Emu as you turn knobs, browse patches and edit sequences. The “living” halftone blob is an experiment in interactive feedback that expands and fades as you play MIDI notes, and you can turn it off with knob 2 in Display settings.
+
 The built-in renderer produced these dual-screen captures in the Dark theme using development fixtures.
 
 ![Home with assigned knobs and a halftone blob that expands and fades in response to MIDI notes](docs/screenshots/midi-blob.gif)
