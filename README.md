@@ -27,9 +27,11 @@ G1-Emu runs the synth and audio in your DAW. Performance MIDI keeps its usual DA
 
 ## Controller displays
 
-The built-in renderer produced these dual-screen captures using development fixtures.
+The built-in renderer produced these dual-screen captures in the Dark theme using development fixtures.
 
-![Home with the active patch and its assigned knobs](docs/screenshots/home.png)
+![Home with assigned knobs and a halftone blob that expands and fades in response to MIDI notes](docs/screenshots/midi-blob.gif)
+
+[Still image of the Home screens](docs/screenshots/home.png)
 
 ![Module Editor with an ADSR envelope diagram](docs/screenshots/module-editor.png)
 
